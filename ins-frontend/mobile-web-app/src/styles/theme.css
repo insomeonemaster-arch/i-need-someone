@@ -1,0 +1,216 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --background: #FAFAFA;
+  --foreground: #2E3440;
+  --card: #EEF1F5;
+  --card-foreground: #2E3440;
+  --popover: #EEF1F5;
+  --popover-foreground: #2E3440;
+  --primary: #5B7CFA;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EEF1F5;
+  --secondary-foreground: #2E3440;
+  --muted: #EEF1F5;
+  --muted-foreground: #6B7280;
+  --accent: #EEF1F5;
+  --accent-foreground: #2E3440;
+  --destructive: #EF5350;
+  --destructive-foreground: #ffffff;
+  --border: #D1D5DB;
+  --input: transparent;
+  --input-background: #EEF1F5;
+  --switch-background: #D1D5DB;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #5B7CFA;
+  --chart-1: #5B7CFA;
+  --chart-2: #4C9F9F;
+  --chart-3: #8B9DC3;
+  --chart-4: #7DD3C0;
+  --chart-5: #A8B8E8;
+  --radius: 0.625rem;
+  --sidebar: #FAFAFA;
+  --sidebar-foreground: #2E3440;
+  --sidebar-primary: #5B7CFA;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #EEF1F5;
+  --sidebar-accent-foreground: #2E3440;
+  --sidebar-border: #D1D5DB;
+  --sidebar-ring: #5B7CFA;
+
+  /* Calm Intelligence Brand Colors */
+  --brand-orange: #5B7CFA;
+  --brand-orange-light: #7B94FF;
+  --brand-orange-dark: #4A6BE8;
+  --brand-black: #2E3440;
+  --brand-white: #FFFFFF;
+  --brand-teal: #4C9F9F;
+  
+  /* Success, Warning, Error */
+  --success: #4CAF50;
+  --success-foreground: #ffffff;
+  --warning: #FFA726;
+  --warning-foreground: #000000;
+  --error: #EF5350;
+  --error-foreground: #ffffff;
+}
+
+.dark {
+  --background: #1A1F2E;
+  --foreground: #E5E7EB;
+  --card: #242936;
+  --card-foreground: #E5E7EB;
+  --popover: #242936;
+  --popover-foreground: #E5E7EB;
+  --primary: #7B94FF;
+  --primary-foreground: #1A1F2E;
+  --secondary: #2E3440;
+  --secondary-foreground: #E5E7EB;
+  --muted: #2E3440;
+  --muted-foreground: #9CA3AF;
+  --accent: #2E3440;
+  --accent-foreground: #E5E7EB;
+  --destructive: #EF5350;
+  --destructive-foreground: #ffffff;
+  --border: #374151;
+  --input: #2E3440;
+  --ring: #7B94FF;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: #7B94FF;
+  --chart-2: #5FB5B5;
+  --chart-3: #9BAFD9;
+  --chart-4: #89E5D1;
+  --chart-5: #B8C7F0;
+  --sidebar: #1A1F2E;
+  --sidebar-foreground: #E5E7EB;
+  --sidebar-primary: #7B94FF;
+  --sidebar-primary-foreground: #1A1F2E;
+  --sidebar-accent: #2E3440;
+  --sidebar-accent-foreground: #E5E7EB;
+  --sidebar-border: #374151;
+  --sidebar-ring: #7B94FF;
+
+  /* Calm Intelligence Brand Colors - Dark Mode */
+  --brand-orange: #7B94FF;
+  --brand-orange-light: #9BAFD9;
+  --brand-orange-dark: #6280E8;
+  --brand-teal: #5FB5B5;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  
+  /* Brand colors for Tailwind */
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-orange-light: var(--brand-orange-light);
+  --color-brand-orange-dark: var(--brand-orange-dark);
+  --color-brand-black: var(--brand-black);
+  --color-brand-white: var(--brand-white);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-error: var(--error);
+  --color-error-foreground: var(--error-foreground);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /**
+  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
+  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
+  */
+
+  html {
+    font-size: var(--font-size);
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+}

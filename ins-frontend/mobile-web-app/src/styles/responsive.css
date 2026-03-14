@@ -1,0 +1,93 @@
+/**
+ * Responsive utilities and device-specific adjustments
+ * Mobile-first approach with tablet and desktop enhancements
+ */
+
+/* Touch target minimum sizes (44x44 for accessibility) */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Safe area padding for mobile devices */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Responsive container widths */
+@media (min-width: 768px) {
+  .responsive-container {
+    max-width: 834px; /* iPad 11" width */
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-container {
+    max-width: 1024px; /* Desktop max width */
+  }
+}
+
+/* Tablet-specific adjustments (iPad) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Increase spacing for larger screens */
+  .card-spacing {
+    margin-bottom: 1rem;
+  }
+  
+  /* Adjust font sizes */
+  .text-adaptive {
+    font-size: 1rem;
+  }
+}
+
+/* Desktop-specific adjustments */
+@media (min-width: 1024px) {
+  /* Add hover states */
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Increase touch targets for mouse usage */
+  .desktop-button {
+    min-height: 48px;
+  }
+}
+
+/* Device-specific viewport fixes */
+@media (max-width: 767px) {
+  /* Prevent overflow on mobile */
+  .mobile-no-overflow {
+    overflow-x: hidden;
+  }
+  
+  /* Full-width cards on mobile */
+  .mobile-full-width {
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+  }
+}
+
+/* Landscape mode adjustments */
+@media (max-height: 600px) and (orientation: landscape) {
+  /* Reduce vertical padding in landscape */
+  .landscape-compact {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* Ensure crisp rendering */
+  .crisp-edges {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

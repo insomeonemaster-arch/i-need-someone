@@ -1,0 +1,278 @@
+const { PrismaClient } = require('@prisma/client');
+const { z } = require('zod');
+const { success, paginated, error, getPagination, buildPaginationMeta } = require('../utils/response');
+const { notifyQueue } = require('../lib/queues');
+
+const prisma = new PrismaClient();
+
+const createRequestSchema = z.object({
+  categoryId: z.string().uuid(),
+  title: z.string().min(5),
+  description: z.string().min(10),
+  urgency: z.enum(['low', 'medium', 'high', 'emergency']).optional(),
+  addressLine1: z.string(),
+  city: z.string(),
+  state: z.string(),
+  postalCode: z.string(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  preferredDate: z.string().optional(),
+  budgetMin: z.number().optional(),
+  budgetMax: z.number().optional(),
+  budgetType: z.enum(['fixed', 'hourly', 'negotiable']).optional(),
+  images: z.array(z.string()).optional(),
+});
+
+const createQuoteSchema = z.object({
+  price: z.number().positive(),
+  pricingType: z.enum(['fixed', 'hourly', 'per-item']).optional(),
+  estimatedHours: z.number().optional(),
+  message: z.string().min(10),
+  availabilityDate: z.string().optional(),
+  completionEstimate: z.string().optional(),
+});
+
+// ── Service Requests ──────────────────────────────────────────────────────────
+
+const getRequests = async (req, res, next) => {
+  try {
+    const { page, perPage, skip } = getPagination(req.query);
+    const where = { clientId: req.user.id, deletedAt: undefined };
+
+    const [requests, total] = await Promise.all([
+      prisma.serviceRequest.findMany({
+        where,
+        skip,
+        take: perPage,
+        orderBy: { createdAt: 'desc' },
+        include: { category: true, assignedProvider: { include: { user: { select: { firstName: true, lastName: true, avatarUrl: true } } } } },
+      }),
+      prisma.serviceRequest.count({ where }),
+    ]);
+
+    return paginated(res, requests, buildPaginationMeta(total, page, perPage));
+  } catch (err) {
+    next(err);
+  }
+};
+
+const createRequest = async (req, res, next) => {
+  try {
+    const data = createRequestSchema.parse(req.body);
+
+    const request = await prisma.serviceRequest.create({
+      data: {
+        ...data,
+        clientId: req.user.id,
+      },
+      include: { category: true },
+    });
+
+    return success(res, request, 201);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getRequest = async (req, res, next) => {
+  try {
+    const request = await prisma.serviceRequest.findUnique({
+      where: { id: req.params.id },
+      include: {
+        category: true,
+        client: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+        assignedProvider: { include: { user: { select: { firstName: true, lastName: true, avatarUrl: true } } } },
+        quotes: { include: { provider: { include: { user: { select: { firstName: true, lastName: true, avatarUrl: true } } } } } },
+      },
+    });
+
+    if (!request) return error(res, 'Request not found', 404, 'NOT_FOUND');
+
+    return success(res, request);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateRequest = async (req, res, next) => {
+  try {
+    const request = await prisma.serviceRequest.findUnique({ where: { id: req.params.id } });
+    if (!request) return error(res, 'Request not found', 404, 'NOT_FOUND');
+    if (request.clientId !== req.user.id) return error(res, 'Access denied', 403, 'FORBIDDEN');
+    if (request.status !== 'open') return error(res, 'Cannot edit a non-open request', 400, 'VALIDATION_ERROR');
+
+    const updated = await prisma.serviceRequest.update({
+      where: { id: req.params.id },
+      data: req.body,
+    });
+
+    return success(res, updated);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const cancelRequest = async (req, res, next) => {
+  try {
+    const request = await prisma.serviceRequest.findUnique({ where: { id: req.params.id } });
+    if (!request) return error(res, 'Request not found', 404, 'NOT_FOUND');
+    if (request.clientId !== req.user.id) return error(res, 'Access denied', 403, 'FORBIDDEN');
+    if (['completed', 'cancelled'].includes(request.status)) {
+      return error(res, 'Request cannot be cancelled', 400, 'VALIDATION_ERROR');
+    }
+
+    const updated = await prisma.serviceRequest.update({
+      where: { id: req.params.id },
+      data: { status: 'cancelled', cancelledAt: new Date() },
+    });
+
+    return success(res, updated);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Quotes ────────────────────────────────────────────────────────────────────
+
+const getQuotes = async (req, res, next) => {
+  try {
+    const request = await prisma.serviceRequest.findUnique({ where: { id: req.params.id } });
+    if (!request) return error(res, 'Request not found', 404, 'NOT_FOUND');
+    if (request.clientId !== req.user.id) return error(res, 'Access denied', 403, 'FORBIDDEN');
+
+    const quotes = await prisma.serviceQuote.findMany({
+      where: { serviceRequestId: req.params.id },
+      include: {
+        provider: {
+          include: {
+            user: { select: { firstName: true, lastName: true, avatarUrl: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return success(res, quotes);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const createQuote = async (req, res, next) => {
+  try {
+    const data = createQuoteSchema.parse(req.body);
+
+    const providerProfile = await prisma.providerProfile.findUnique({ where: { userId: req.user.id } });
+    if (!providerProfile) return error(res, 'Provider profile not found', 404, 'NOT_FOUND');
+
+    const request = await prisma.serviceRequest.findUnique({ where: { id: req.params.id } });
+    if (!request) return error(res, 'Request not found', 404, 'NOT_FOUND');
+    if (request.status !== 'open') return error(res, 'Request is no longer open for quotes', 400, 'VALIDATION_ERROR');
+
+    const existing = await prisma.serviceQuote.findUnique({
+      where: { serviceRequestId_providerId: { serviceRequestId: req.params.id, providerId: providerProfile.id } },
+    });
+    if (existing) return error(res, 'You have already submitted a quote', 409, 'CONFLICT');
+
+    const quote = await prisma.serviceQuote.create({
+      data: { ...data, serviceRequestId: req.params.id, providerId: providerProfile.id },
+    });
+
+    return success(res, quote, 201);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const acceptQuote = async (req, res, next) => {
+  try {
+    const quote = await prisma.serviceQuote.findUnique({
+      where: { id: req.params.id },
+      include: { serviceRequest: true },
+    });
+    if (!quote) return error(res, 'Quote not found', 404, 'NOT_FOUND');
+    if (quote.serviceRequest.clientId !== req.user.id) return error(res, 'Access denied', 403, 'FORBIDDEN');
+    if (quote.status !== 'pending') return error(res, 'Quote is no longer pending', 400, 'VALIDATION_ERROR');
+
+    await prisma.$transaction([
+      prisma.serviceQuote.update({
+        where: { id: req.params.id },
+        data: { status: 'accepted', acceptedAt: new Date() },
+      }),
+      prisma.serviceQuote.updateMany({
+        where: { serviceRequestId: quote.serviceRequestId, id: { not: req.params.id } },
+        data: { status: 'rejected', rejectedAt: new Date() },
+      }),
+      prisma.serviceRequest.update({
+        where: { id: quote.serviceRequestId },
+        data: { status: 'assigned', assignedProviderId: quote.providerId },
+      }),
+    ]);
+    await notifyQueue.add('send', {
+        userId: quote.provider.userId,
+        type: 'booking',
+        title: 'Your quote was accepted!',
+        body: `Your quote for "${quote.serviceRequest.title}" has been accepted.`,
+        contextType: 'service_request',
+        contextId: quote.serviceRequestId,
+    });
+
+    return success(res, { message: 'Quote accepted' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const rejectQuote = async (req, res, next) => {
+  try {
+    const quote = await prisma.serviceQuote.findUnique({
+      where: { id: req.params.id },
+      include: { serviceRequest: true },
+    });
+    if (!quote) return error(res, 'Quote not found', 404, 'NOT_FOUND');
+    if (quote.serviceRequest.clientId !== req.user.id) return error(res, 'Access denied', 403, 'FORBIDDEN');
+
+    await prisma.serviceQuote.update({
+      where: { id: req.params.id },
+      data: { status: 'rejected', rejectedAt: new Date() },
+    });
+
+    return success(res, { message: 'Quote rejected' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Browse ────────────────────────────────────────────────────────────────────
+
+const browse = async (req, res, next) => {
+  try {
+    const { page, perPage, skip } = getPagination(req.query);
+    const { categoryId, lat, lng, radius = 50 } = req.query;
+
+    const where = {
+      verificationStatus: 'verified',
+      isAvailable: true,
+    };
+    if (categoryId) where.skills = { some: { skill: { categoryId } } };
+
+    const [providers, total] = await Promise.all([
+      prisma.providerProfile.findMany({
+        where,
+        skip,
+        take: perPage,
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, city: true, state: true } },
+        },
+        orderBy: { averageRating: 'desc' },
+      }),
+      prisma.providerProfile.count({ where }),
+    ]);
+
+    return paginated(res, providers, buildPaginationMeta(total, page, perPage));
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getRequests, createRequest, getRequest, updateRequest, cancelRequest, getQuotes, createQuote, acceptQuote, rejectQuote, browse };

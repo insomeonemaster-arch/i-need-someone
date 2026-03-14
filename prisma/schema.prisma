@@ -1,0 +1,1325 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas   = ["public"]
+}
+
+// ─── ENUMS ───────────────────────────────────────────────────────────────────
+
+enum UserMode {
+  client
+  provider
+
+  @@schema("public")
+}
+
+enum VerificationStatus {
+  pending
+  verified
+  rejected
+
+  @@schema("public")
+}
+
+enum ServiceRequestStatus {
+  open
+  assigned
+  in_progress
+  completed
+  cancelled
+
+  @@schema("public")
+}
+
+enum QuoteStatus {
+  pending
+  accepted
+  rejected
+  withdrawn
+
+  @@schema("public")
+}
+
+enum JobStatus {
+  open
+  filled
+  closed
+  on_hold
+
+  @@schema("public")
+}
+
+enum EmploymentType {
+  full_time
+  part_time
+  contract
+  temporary
+
+  @@schema("public")
+}
+
+enum WorkLocation {
+  on_site
+  remote
+  hybrid
+
+  @@schema("public")
+}
+
+enum ApplicationStatus {
+  pending
+  reviewing
+  shortlisted
+  interviewed
+  offered
+  hired
+  rejected
+  withdrawn
+
+  @@schema("public")
+}
+
+enum ProjectStatus {
+  open
+  in_progress
+  under_review
+  completed
+  cancelled
+
+  @@schema("public")
+}
+
+enum ProposalStatus {
+  pending
+  accepted
+  rejected
+  withdrawn
+
+  @@schema("public")
+}
+
+enum TransactionStatus {
+  pending
+  processing
+  completed
+  failed
+  refunded
+  disputed
+
+  @@schema("public")
+}
+
+enum NotificationType {
+  message
+  booking
+  payment
+  review
+  system
+  announcement
+
+  @@schema("public")
+}
+
+enum DisputeStatus {
+  open
+  under_review
+  resolved
+  closed
+
+  @@schema("public")
+}
+
+enum PaymentStatus {
+  pending
+  processing
+  held
+  completed
+  failed
+  refunded
+
+  @@schema("public")
+}
+
+enum PayoutStatus {
+  pending
+  processing
+  completed
+  failed
+
+  @@schema("public")
+}
+
+enum FlagStatus {
+  pending
+  under_review
+  resolved
+  dismissed
+
+  @@schema("public")
+}
+
+enum OAuthProvider {
+  google
+  facebook
+  apple
+
+  @@schema("public")
+}
+
+// ─── USERS ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  phone        String? @unique
+  passwordHash String  @map("password_hash")
+
+  firstName   String    @map("first_name")
+  lastName    String    @map("last_name")
+  displayName String?   @map("display_name")
+  avatarUrl   String?   @map("avatar_url")
+  bio         String?
+  dateOfBirth DateTime? @map("date_of_birth") @db.Date
+
+  currentMode   UserMode @default(client) @map("current_mode")
+  preferredMode UserMode @default(client) @map("preferred_mode")
+
+  addressLine1 String?  @map("address_line1")
+  addressLine2 String?  @map("address_line2")
+  city         String?
+  state        String?
+  postalCode   String?  @map("postal_code")
+  country      String?  @default("USA")
+  latitude     Decimal? @db.Decimal(10, 8)
+  longitude    Decimal? @db.Decimal(11, 8)
+
+  isEmailVerified Boolean @default(false) @map("is_email_verified")
+  isPhoneVerified Boolean @default(false) @map("is_phone_verified")
+  isActive        Boolean @default(true) @map("is_active")
+  isProvider      Boolean @default(false) @map("is_provider")
+  isAdmin         Boolean @default(false) @map("is_admin")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  lastLoginAt DateTime? @map("last_login_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  stripeCustomerId    String?   @map("stripe_customer_id")
+  emailVerifyToken    String?   @map("email_verify_token")
+  passwordResetToken  String?   @map("password_reset_token")
+  passwordResetExpiry DateTime? @map("password_reset_expiry")
+  phoneOtp            String?   @map("phone_otp")
+  phoneOtpExpiry      DateTime? @map("phone_otp_expiry")
+
+  privacySettings Json? @map("privacy_settings")
+  displaySettings Json? @map("display_settings")
+
+  // Relations
+  sessions             UserSession[]
+  oauthProviders       OAuthProviderAccount[]
+  providerProfile      ProviderProfile?
+  serviceRequests      ServiceRequest[]
+  jobPostings          JobPosting[]
+  jobApplications      JobApplication[]
+  projects             Project[]
+  sentMessages         Message[]
+  notifications        Notification[]
+  reviewsGiven         Review[]               @relation("ReviewerRelation")
+  reviewsReceived      Review[]               @relation("RevieweeRelation")
+  conversationsAsP1    Conversation[]         @relation("Participant1")
+  conversationsAsP2    Conversation[]         @relation("Participant2")
+  insConversations     InsConversation[]
+  notificationSettings NotificationSettings?
+  activityLogs         UserActivityLog[]
+
+  // Admin panel relations
+  paymentsAsPayer       Payment[]       @relation("PaymentsPayer")
+  paymentsAsPayee       Payment[]       @relation("PaymentsPayee")
+  payouts               Payout[]        @relation("ProviderPayouts")
+  flagsCreated          Flag[]          @relation("FlagFlagger")
+  flagsAssigned         Flag[]          @relation("FlagAdmin")
+  disputesAsComplainant Dispute[]       @relation("DisputeComplainant")
+  disputesAsRespondent  Dispute[]       @relation("DisputeRespondent")
+  disputesAssigned      Dispute[]       @relation("DisputeAssignedAdmin")
+  adminRoles            AdminUserRole[] @relation("UserAdminRoles")
+  adminRolesAssigned    AdminUserRole[] @relation("AssignedByUser")
+  systemSettingsUpdated SystemSetting[] @relation("SettingUpdatedBy")
+  supportTickets        SupportTicket[]
+  ticketMessages        SupportTicketMessage[] @relation("TicketMessageSender")
+  verificationDocuments VerificationDocument[]
+  backgroundChecks      BackgroundCheck[]
+  transactionsAsPayer   Transaction[]  @relation("TransactionPayer")
+  transactionsAsPayee   Transaction[]  @relation("TransactionPayee")
+  paymentMethods        PaymentMethod[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([latitude, longitude])
+  @@schema("public")
+  @@map("app_users")
+}
+
+model UserSession {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  refreshToken String   @unique @map("refresh_token")
+  deviceInfo   Json?    @map("device_info")
+  ipAddress    String?  @map("ip_address")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([refreshToken])
+  @@schema("public")
+  @@map("user_sessions")
+}
+
+model OAuthProviderAccount {
+  id             String        @id @default(uuid())
+  userId         String        @map("user_id")
+  provider       OAuthProvider
+  providerUserId String        @map("provider_user_id")
+  accessToken    String?       @map("access_token")
+  refreshToken   String?       @map("refresh_token")
+  tokenExpiresAt DateTime?     @map("token_expires_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+  @@schema("public")
+  @@map("oauth_providers")
+}
+
+// ─── PROVIDER PROFILES ───────────────────────────────────────────────────────
+
+model ProviderProfile {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+
+  businessName String? @map("business_name")
+  businessType String? @map("business_type")
+  taxId        String? @map("tax_id")
+
+  title      String?
+  tagline    String?
+  hourlyRate Decimal? @map("hourly_rate") @db.Decimal(10, 2)
+  currency   String   @default("USD")
+
+  isAvailable          Boolean @default(true) @map("is_available")
+  availabilitySchedule Json?   @map("availability_schedule")
+  serviceRadius        Int?    @map("service_radius")
+  serviceAreas         Json?   @map("service_areas")
+  acceptsRemoteWork    Boolean @default(false) @map("accepts_remote_work")
+  remoteOnly           Boolean @default(false) @map("remote_only")
+  timeZones            Json?   @map("time_zones")
+
+  verificationStatus VerificationStatus @default(pending) @map("verification_status")
+  verificationLevel  String?            @map("verification_level")
+  verifiedAt         DateTime?          @map("verified_at")
+
+  totalJobsCompleted  Int     @default(0) @map("total_jobs_completed")
+  totalEarnings       Decimal @default(0) @map("total_earnings") @db.Decimal(12, 2)
+  averageRating       Decimal @default(0) @map("average_rating") @db.Decimal(3, 2)
+  totalReviews        Int     @default(0) @map("total_reviews")
+  responseRate        Decimal @default(0) @map("response_rate") @db.Decimal(5, 2)
+  responseTimeMinutes Int?    @map("response_time_minutes")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user             User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills           ProviderSkill[]
+  certifications   ProviderCertification[]
+  portfolio        ProviderPortfolio[]
+  quotes           ServiceQuote[]
+  proposals        ProjectProposal[]
+  assignedRequests ServiceRequest[]
+  assignedProjects Project[]
+
+  @@index([userId])
+  @@index([verificationStatus])
+  @@schema("public")
+  @@map("provider_profiles")
+}
+
+model ProviderSkill {
+  id                String   @id @default(uuid())
+  providerId        String   @map("provider_id")
+  skillId           String   @map("skill_id")
+  yearsOfExperience Int?     @map("years_of_experience")
+  proficiencyLevel  String?  @map("proficiency_level")
+  isCertified       Boolean  @default(false) @map("is_certified")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  skill    Skill           @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, skillId])
+  @@schema("public")
+  @@map("provider_skills")
+}
+
+model ProviderCertification {
+  id                  String    @id @default(uuid())
+  providerId          String    @map("provider_id")
+  name                String
+  issuingOrganization String?   @map("issuing_organization")
+  credentialId        String?   @map("credential_id")
+  issueDate           DateTime? @map("issue_date") @db.Date
+  expiryDate          DateTime? @map("expiry_date") @db.Date
+  documentUrl         String?   @map("document_url")
+  verified            Boolean   @default(false)
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@schema("public")
+  @@map("provider_certifications")
+}
+
+model ProviderPortfolio {
+  id           String    @id @default(uuid())
+  providerId   String    @map("provider_id")
+  title        String
+  description  String?
+  projectUrl   String?   @map("project_url")
+  thumbnailUrl String?   @map("thumbnail_url")
+  images       Json?
+  skillsUsed   Json?     @map("skills_used")
+  completedAt  DateTime? @map("completed_at") @db.Date
+  displayOrder Int       @default(0) @map("display_order")
+  isFeatured   Boolean   @default(false) @map("is_featured")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@schema("public")
+  @@map("provider_portfolio")
+}
+
+// ─── CATEGORIES & SKILLS ─────────────────────────────────────────────────────
+
+model Category {
+  id               String   @id @default(uuid())
+  name             String
+  slug             String   @unique
+  module           String
+  description      String?
+  iconName         String?  @map("icon_name")
+  parentCategoryId String?  @map("parent_category_id")
+  displayOrder     Int      @default(0) @map("display_order")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  parent          Category?        @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id])
+  children        Category[]       @relation("CategoryHierarchy")
+  skills          Skill[]
+  serviceRequests ServiceRequest[]
+  jobPostings     JobPosting[]
+  projects        Project[]
+
+  @@index([module])
+  @@index([slug])
+  @@schema("public")
+  @@map("categories")
+}
+
+model Skill {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  categoryId  String?  @map("category_id")
+  description String?
+  isVerified  Boolean  @default(false) @map("is_verified")
+  usageCount  Int      @default(0) @map("usage_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  category       Category?       @relation(fields: [categoryId], references: [id])
+  providerSkills ProviderSkill[]
+
+  @@index([categoryId])
+  @@schema("public")
+  @@map("skills")
+}
+
+// ─── LOCAL SERVICES ───────────────────────────────────────────────────────────
+
+model ServiceRequest {
+  id         String @id @default(uuid())
+  clientId   String @map("client_id")
+  categoryId String @map("category_id")
+
+  title       String
+  description String
+  urgency     String?
+
+  addressLine1 String   @map("address_line1")
+  addressLine2 String?  @map("address_line2")
+  city         String
+  state        String
+  postalCode   String   @map("postal_code")
+  country      String   @default("USA")
+  latitude     Decimal? @db.Decimal(10, 8)
+  longitude    Decimal? @db.Decimal(11, 8)
+
+  preferredDate      DateTime? @map("preferred_date") @db.Date
+  preferredTimeStart DateTime? @map("preferred_time_start") @db.Time()
+  preferredTimeEnd   DateTime? @map("preferred_time_end") @db.Time()
+  flexibleScheduling Boolean   @default(true) @map("flexible_scheduling")
+
+  budgetMin  Decimal? @map("budget_min") @db.Decimal(10, 2)
+  budgetMax  Decimal? @map("budget_max") @db.Decimal(10, 2)
+  budgetType String?  @map("budget_type")
+  currency   String   @default("USD")
+
+  status             ServiceRequestStatus @default(open)
+  assignedProviderId String?              @map("assigned_provider_id")
+
+  images      Json?
+  attachments Json?
+
+  createdVia        String? @default("manual") @map("created_via")
+  insConversationId String? @map("ins_conversation_id")
+  insCollectedData  Json?   @map("ins_collected_data")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  completedAt DateTime? @map("completed_at")
+  cancelledAt DateTime? @map("cancelled_at")
+
+  client           User             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  category         Category         @relation(fields: [categoryId], references: [id])
+  assignedProvider ProviderProfile? @relation(fields: [assignedProviderId], references: [id])
+  quotes           ServiceQuote[]
+  reviews          Review[]
+
+  @@index([clientId])
+  @@index([assignedProviderId])
+  @@index([status])
+  @@index([latitude, longitude])
+  @@index([categoryId])
+  @@schema("public")
+  @@map("service_requests")
+}
+
+model ServiceQuote {
+  id               String @id @default(uuid())
+  serviceRequestId String @map("service_request_id")
+  providerId       String @map("provider_id")
+
+  price              Decimal   @db.Decimal(10, 2)
+  currency           String    @default("USD")
+  pricingType        String?   @map("pricing_type")
+  estimatedHours     Decimal?  @map("estimated_hours") @db.Decimal(5, 2)
+  message            String
+  availabilityDate   DateTime? @map("availability_date") @db.Date
+  completionEstimate String?   @map("completion_estimate")
+
+  status     QuoteStatus @default(pending)
+  acceptedAt DateTime?   @map("accepted_at")
+  rejectedAt DateTime?   @map("rejected_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  serviceRequest ServiceRequest  @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  provider       ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceRequestId, providerId])
+  @@index([serviceRequestId])
+  @@index([providerId])
+  @@index([status])
+  @@schema("public")
+  @@map("service_quotes")
+}
+
+// ─── JOBS ─────────────────────────────────────────────────────────────────────
+
+model JobPosting {
+  id          String  @id @default(uuid())
+  employerId  String  @map("employer_id")
+  companyName String? @map("company_name")
+
+  title          String
+  description    String
+  categoryId     String         @map("category_id")
+  employmentType EmploymentType @map("employment_type")
+  workLocation   WorkLocation   @map("work_location")
+
+  addressLine1 String?  @map("address_line1")
+  addressLine2 String?  @map("address_line2")
+  city         String?
+  state        String?
+  postalCode   String?  @map("postal_code")
+  country      String?  @default("USA")
+  latitude     Decimal? @db.Decimal(10, 8)
+  longitude    Decimal? @db.Decimal(11, 8)
+
+  salaryMin  Decimal? @map("salary_min") @db.Decimal(12, 2)
+  salaryMax  Decimal? @map("salary_max") @db.Decimal(12, 2)
+  salaryType String?  @map("salary_type")
+  currency   String   @default("USD")
+  benefits   Json?
+
+  requiredSkills     Json?   @map("required_skills")
+  preferredSkills    Json?   @map("preferred_skills")
+  minExperienceYears Int?    @map("min_experience_years")
+  educationLevel     String? @map("education_level")
+
+  applicationDeadline DateTime? @map("application_deadline") @db.Date
+  positionsAvailable  Int       @default(1) @map("positions_available")
+
+  status    JobStatus @default(open)
+  expiresAt DateTime? @map("expires_at")
+  closedAt  DateTime? @map("closed_at")
+
+  createdVia        String? @default("manual") @map("created_via")
+  insConversationId String? @map("ins_conversation_id")
+  insCollectedData  Json?   @map("ins_collected_data")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  employer     User             @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  category     Category         @relation(fields: [categoryId], references: [id])
+  applications JobApplication[]
+  reviews      Review[]
+
+  @@index([employerId])
+  @@index([status])
+  @@index([categoryId])
+  @@index([latitude, longitude])
+  @@index([employmentType])
+  @@schema("public")
+  @@map("job_postings")
+}
+
+model JobApplication {
+  id           String @id @default(uuid())
+  jobPostingId String @map("job_posting_id")
+  applicantId  String @map("applicant_id")
+
+  coverLetter    String?   @map("cover_letter")
+  resumeUrl      String?   @map("resume_url")
+  portfolioUrl   String?   @map("portfolio_url")
+  expectedSalary Decimal?  @map("expected_salary") @db.Decimal(12, 2)
+  availableFrom  DateTime? @map("available_from") @db.Date
+
+  status        ApplicationStatus @default(pending)
+  employerNotes String?           @map("employer_notes")
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  reviewedAt DateTime? @map("reviewed_at")
+
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  applicant  User       @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+
+  @@unique([jobPostingId, applicantId])
+  @@index([jobPostingId])
+  @@index([applicantId])
+  @@index([status])
+  @@schema("public")
+  @@map("job_applications")
+}
+
+// ─── PROJECTS ─────────────────────────────────────────────────────────────────
+
+model Project {
+  id         String @id @default(uuid())
+  clientId   String @map("client_id")
+  categoryId String @map("category_id")
+
+  title       String
+  description String
+
+  projectScope      String? @map("project_scope")
+  estimatedDuration String? @map("estimated_duration")
+
+  budgetMin  Decimal? @map("budget_min") @db.Decimal(12, 2)
+  budgetMax  Decimal? @map("budget_max") @db.Decimal(12, 2)
+  budgetType String?  @map("budget_type")
+  currency   String   @default("USD")
+
+  requiredSkills Json? @map("required_skills")
+  deliverables   Json?
+
+  startDate DateTime? @map("start_date") @db.Date
+  deadline  DateTime? @db.Date
+
+  status             ProjectStatus @default(open)
+  assignedProviderId String?       @map("assigned_provider_id")
+
+  attachments    Json?
+  referenceFiles Json? @map("reference_files")
+
+  createdVia        String? @default("manual") @map("created_via")
+  insConversationId String? @map("ins_conversation_id")
+  insCollectedData  Json?   @map("ins_collected_data")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  cancelledAt DateTime? @map("cancelled_at")
+
+  client           User              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  category         Category          @relation(fields: [categoryId], references: [id])
+  assignedProvider ProviderProfile?  @relation(fields: [assignedProviderId], references: [id])
+  proposals        ProjectProposal[]
+  milestones       Milestone[]
+  reviews          Review[]
+
+  @@index([clientId])
+  @@index([assignedProviderId])
+  @@index([status])
+  @@index([categoryId])
+  @@schema("public")
+  @@map("projects")
+}
+
+model ProjectProposal {
+  id         String @id @default(uuid())
+  projectId  String @map("project_id")
+  providerId String @map("provider_id")
+
+  coverLetter       String
+  proposedPrice     Decimal  @map("proposed_price") @db.Decimal(12, 2)
+  pricingType       String?  @map("pricing_type")
+  estimatedHours    Decimal? @map("estimated_hours") @db.Decimal(6, 2)
+  estimatedDuration String?  @map("estimated_duration")
+  milestones        Json?
+  portfolioItems    Json?    @map("portfolio_items")
+
+  status     ProposalStatus @default(pending)
+  acceptedAt DateTime?      @map("accepted_at")
+  rejectedAt DateTime?      @map("rejected_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project  Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, providerId])
+  @@index([projectId])
+  @@index([providerId])
+  @@index([status])
+  @@schema("public")
+  @@map("project_proposals")
+}
+
+model Milestone {
+  id          String    @id @default(uuid())
+  projectId   String    @map("project_id")
+  title       String
+  description String?
+  amount      Decimal   @db.Decimal(12, 2)
+  dueDate     DateTime? @map("due_date") @db.Date
+  order       Int       @default(0)
+
+  status      String    @default("pending") // pending, submitted, approved, paid
+  completedAt DateTime? @map("completed_at")
+  approvedAt  DateTime? @map("approved_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@schema("public")
+  @@map("milestones")
+}
+
+// ─── MESSAGING ────────────────────────────────────────────────────────────────
+
+model Conversation {
+  id             String @id @default(uuid())
+  participant1Id String @map("participant_1_id")
+  participant2Id String @map("participant_2_id")
+
+  contextType String? @map("context_type")
+  contextId   String? @map("context_id")
+
+  lastMessageAt      DateTime? @map("last_message_at")
+  lastMessagePreview String?   @map("last_message_preview")
+
+  isArchivedByP1  Boolean @default(false) @map("is_archived_by_p1")
+  isArchivedByP2  Boolean @default(false) @map("is_archived_by_p2")
+  isBlocked       Boolean @default(false) @map("is_blocked")
+  blockedByUserId String? @map("blocked_by_user_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  participant1 User      @relation("Participant1", fields: [participant1Id], references: [id], onDelete: Cascade)
+  participant2 User      @relation("Participant2", fields: [participant2Id], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@index([participant1Id])
+  @@index([participant2Id])
+  @@index([contextType, contextId])
+  @@schema("public")
+  @@map("conversations")
+}
+
+model Message {
+  id             String @id @default(uuid())
+  conversationId String @map("conversation_id")
+  senderId       String @map("sender_id")
+
+  messageType String @default("text") @map("message_type")
+  content     String
+  attachments Json?
+
+  isRead               Boolean   @default(false) @map("is_read")
+  readAt               DateTime? @map("read_at")
+  isDeletedBySender    Boolean   @default(false) @map("is_deleted_by_sender")
+  isDeletedByRecipient Boolean   @default(false) @map("is_deleted_by_recipient")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt(sort: Desc)])
+  @@schema("public")
+  @@map("messages")
+}
+
+// ─── REVIEWS ──────────────────────────────────────────────────────────────────
+
+model Review {
+  id         String @id @default(uuid())
+  reviewerId String @map("reviewer_id")
+  revieweeId String @map("reviewee_id")
+
+  contextType String @map("context_type")
+  contextId   String @map("context_id")
+
+  rating  Int
+  title   String?
+  content String?
+
+  communicationRating   Int? @map("communication_rating")
+  qualityRating         Int? @map("quality_rating")
+  professionalismRating Int? @map("professionalism_rating")
+  timelinessRating      Int? @map("timeliness_rating")
+
+  responseText String?   @map("response_text")
+  responseAt   DateTime? @map("response_at")
+
+  isVerified    Boolean @default(false) @map("is_verified")
+  isFeatured    Boolean @default(false) @map("is_featured")
+  isHidden      Boolean @default(false) @map("is_hidden")
+  isFlagged     Boolean @default(false) @map("is_flagged")
+  flagReason    String? @map("flag_reason")
+  adminReviewed Boolean @default(false) @map("admin_reviewed")
+  adminAction   String? @map("admin_action")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  reviewer       User            @relation("ReviewerRelation", fields: [reviewerId], references: [id])
+  reviewee       User            @relation("RevieweeRelation", fields: [revieweeId], references: [id])
+  serviceRequest ServiceRequest? @relation(fields: [contextId], references: [id], map: "review_service_request_fk")
+  jobPosting     JobPosting?     @relation(fields: [contextId], references: [id], map: "review_job_fk")
+  project        Project?        @relation(fields: [contextId], references: [id], map: "review_project_fk")
+
+  @@unique([reviewerId, contextType, contextId])
+  @@index([reviewerId])
+  @@index([revieweeId])
+  @@index([contextType, contextId])
+  @@schema("public")
+  @@map("reviews")
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
+
+model Notification {
+  id     String           @id @default(uuid())
+  userId String           @map("user_id")
+  type   NotificationType
+  title  String
+  body   String
+
+  actionType String? @map("action_type")
+  actionUrl  String? @map("action_url")
+
+  contextType String? @map("context_type")
+  contextId   String? @map("context_id")
+
+  isRead      Boolean @default(false) @map("is_read")
+  isPushSent  Boolean @default(false) @map("is_push_sent")
+  isEmailSent Boolean @default(false) @map("is_email_sent")
+  isSmsSent   Boolean @default(false) @map("is_sms_sent")
+
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt(sort: Desc)])
+  @@schema("public")
+  @@map("notifications")
+}
+
+// ─── INS (AI ASSISTANT) ───────────────────────────────────────────────────────
+
+model InsConversation {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+
+  conversationType String? @map("conversation_type")
+  category         String?
+  mode             String?
+
+  status               String @default("active")
+  collectedData        Json?  @map("collected_data")
+  completionPercentage Int    @default(0) @map("completion_percentage")
+
+  createdEntityType String? @map("created_entity_type")
+  createdEntityId   String? @map("created_entity_id")
+
+  startedAt         DateTime  @default(now()) @map("started_at")
+  completedAt       DateTime? @map("completed_at")
+  lastInteractionAt DateTime  @default(now()) @map("last_interaction_at")
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages InsMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@schema("public")
+  @@map("ins_conversations")
+}
+
+model InsMessage {
+  id             String @id @default(uuid())
+  conversationId String @map("conversation_id")
+
+  role        String
+  content     String
+  inputMethod String? @map("input_method")
+  aiModel     String? @map("ai_model")
+  tokensUsed  Int?    @map("tokens_used")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  conversation InsConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@schema("public")
+  @@map("ins_messages")
+}
+
+model Announcement {
+  id             String    @id @default(uuid())
+  title          String
+  body           String
+  imageUrl       String?   @map("image_url")
+  targetAudience String    @default("all") @map("target_audience")
+  targetUserIds  Json?     @map("target_user_ids")
+  priority       String    @default("normal")
+  publishAt      DateTime  @default(now()) @map("publish_at")
+  expireAt       DateTime? @map("expire_at")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@index([publishAt])
+  @@schema("public")
+  @@map("announcements")
+}
+
+model NotificationSettings {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+
+  emailMessages  Boolean @default(true) @map("email_messages")
+  emailBookings  Boolean @default(true) @map("email_bookings")
+  emailPayments  Boolean @default(true) @map("email_payments")
+  emailReviews   Boolean @default(true) @map("email_reviews")
+  emailSystem    Boolean @default(true) @map("email_system")
+  emailMarketing Boolean @default(false) @map("email_marketing")
+
+  pushMessages Boolean @default(true) @map("push_messages")
+  pushBookings Boolean @default(true) @map("push_bookings")
+  pushPayments Boolean @default(true) @map("push_payments")
+  pushReviews  Boolean @default(true) @map("push_reviews")
+  pushSystem   Boolean @default(true) @map("push_system")
+
+  smsMessages Boolean @default(false) @map("sms_messages")
+  smsBookings Boolean @default(true) @map("sms_bookings")
+  smsPayments Boolean @default(true) @map("sms_payments")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+  @@map("notification_settings")
+}
+
+model UserActivityLog {
+  id           String   @id @default(uuid())
+  userId       String?  @map("user_id")
+  action       String
+  resourceType String?  @map("resource_type")
+  resourceId   String?  @map("resource_id")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  deviceType   String?  @map("device_type")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt(sort: Desc)])
+  @@schema("public")
+  @@map("user_activity_logs")
+}
+
+model Faq {
+  id           String   @id @default(uuid())
+  question     String
+  answer       String
+  category     String?
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@schema("public")
+  @@map("faqs")
+}
+
+// ─── ADMIN PANEL MODELS ───────────────────────────────────────────────────────
+
+model ServiceZone {
+  id        String   @id @default(uuid())
+  name      String
+  city      String
+  state     String
+  country   String   @default("USA")
+  zipCodes  Json?    @map("zip_codes")
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([city])
+  @@index([status])
+  @@schema("public")
+  @@map("service_zones")
+}
+
+model Payment {
+  id                    String        @id @default(uuid())
+  paymentId             String        @unique @map("payment_id")
+  payerId               String        @map("payer_id")
+  payeeId               String?       @map("payee_id")
+  entityType            String        @map("entity_type")
+  entityId              String        @map("entity_id")
+  amount                Decimal       @db.Decimal(10, 2)
+  fee                   Decimal       @default(0.00) @db.Decimal(10, 2)
+  netAmount             Decimal       @map("net_amount") @db.Decimal(10, 2)
+  currency              String        @default("USD")
+  paymentMethod         String?       @map("payment_method")
+  status                PaymentStatus @default(pending)
+  stripePaymentIntentId String?       @map("stripe_payment_intent_id")
+  stripeTransferId      String?       @map("stripe_transfer_id")
+  heldUntil             DateTime?     @map("held_until")
+  completedAt           DateTime?     @map("completed_at")
+  refundedAt            DateTime?     @map("refunded_at")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  payer User  @relation("PaymentsPayer", fields: [payerId], references: [id], onDelete: Cascade)
+  payee User? @relation("PaymentsPayee", fields: [payeeId], references: [id], onDelete: Cascade)
+
+  @@index([payerId])
+  @@index([payeeId])
+  @@index([entityType, entityId])
+  @@index([status])
+  @@schema("public")
+  @@map("payments")
+}
+
+model Payout {
+  id             String       @id @default(uuid())
+  payoutId       String       @unique @map("payout_id")
+  providerId     String       @map("provider_id")
+  amount         Decimal      @db.Decimal(10, 2)
+  currency       String       @default("USD")
+  status         PayoutStatus @default(pending)
+  method         String?
+  stripePayoutId String?      @map("stripe_payout_id")
+  initiatedAt    DateTime?    @map("initiated_at")
+  completedAt    DateTime?    @map("completed_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  provider User @relation("ProviderPayouts", fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([status])
+  @@schema("public")
+  @@map("payouts")
+}
+
+model Flag {
+  id                String     @id @default(uuid())
+  flagId            String     @unique @map("flag_id")
+  flaggerId         String     @map("flagger_id")
+  flaggedEntityType String     @map("flagged_entity_type")
+  flaggedEntityId   String     @map("flagged_entity_id")
+  reason            String
+  description       String?
+  status            FlagStatus @default(pending)
+  adminId           String?    @map("admin_id")
+  adminNotes        String?    @map("admin_notes")
+  resolution        String?
+  createdAt         DateTime   @default(now()) @map("created_at")
+  resolvedAt        DateTime?  @map("resolved_at")
+
+  flagger User  @relation("FlagFlagger", fields: [flaggerId], references: [id], onDelete: Cascade)
+  admin   User? @relation("FlagAdmin", fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([flaggerId])
+  @@index([flaggedEntityType, flaggedEntityId])
+  @@index([status])
+  @@schema("public")
+  @@map("flags")
+}
+
+model Dispute {
+  id               String        @id @default(uuid())
+  disputeId        String        @unique @map("dispute_id")
+  complainantId    String        @map("complainant_id")
+  respondentId     String        @map("respondent_id")
+  entityType       String        @map("entity_type")
+  entityId         String        @map("entity_id")
+  reason           String
+  description      String
+  status           DisputeStatus @default(open)
+  priority         String        @default("medium")
+  assignedAdminId  String?       @map("assigned_admin_id")
+  resolutionNotes  String?       @map("resolution_notes")
+  resolutionAction String?       @map("resolution_action")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  resolvedAt       DateTime?     @map("resolved_at")
+
+  complainant   User  @relation("DisputeComplainant", fields: [complainantId], references: [id], onDelete: Cascade)
+  respondent    User  @relation("DisputeRespondent", fields: [respondentId], references: [id], onDelete: Cascade)
+  assignedAdmin User? @relation("DisputeAssignedAdmin", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+
+  @@index([complainantId])
+  @@index([respondentId])
+  @@index([entityType, entityId])
+  @@index([status])
+  @@index([assignedAdminId])
+  @@schema("public")
+  @@map("disputes")
+}
+
+model AdminRole {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  permissions Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  userRoles AdminUserRole[]
+
+  @@index([name])
+  @@schema("public")
+  @@map("admin_roles")
+}
+
+model AdminUserRole {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  roleId     String   @map("role_id")
+  assignedBy String?  @map("assigned_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user           User      @relation("UserAdminRoles", fields: [userId], references: [id], onDelete: Cascade)
+  role           AdminRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedByUser User?     @relation("AssignedByUser", fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@schema("public")
+  @@map("admin_user_roles")
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Json
+  description String?
+  updatedBy   String?  @map("updated_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  updatedByUser User? @relation("SettingUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  @@index([key])
+  @@schema("public")
+  @@map("system_settings")
+}
+
+model SupportTicket {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  subject     String
+  description String
+  category    String    @default("other")
+  status      String    @default("open")
+  priority    String    @default("normal")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  resolvedAt  DateTime? @map("resolved_at")
+  closedAt    DateTime? @map("closed_at")
+
+  user     User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages SupportTicketMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@schema("public")
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id             String   @id @default(uuid())
+  ticketId       String   @map("ticket_id")
+  senderId       String   @map("sender_id")
+  message        String
+  isInternalNote Boolean  @default(false) @map("is_internal_note")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender User          @relation("TicketMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@schema("public")
+  @@map("support_ticket_messages")
+}
+
+model Transaction {
+  id                          String    @id @default(uuid())
+  payerId                     String    @map("payer_id")
+  payeeId                     String?   @map("payee_id")
+  contextType                 String    @map("context_type")
+  contextId                   String    @map("context_id")
+  amount                      Decimal   @db.Decimal(10, 2)
+  currency                    String    @default("USD")
+  platformFee                 Decimal   @default(0) @map("platform_fee") @db.Decimal(10, 2)
+  providerEarnings            Decimal   @default(0) @map("provider_earnings") @db.Decimal(10, 2)
+  paymentMethod               String?   @map("payment_method")
+  paymentProvider             String?   @map("payment_provider")
+  paymentProviderTransactionId String?  @map("payment_provider_transaction_id")
+  status                      String    @default("pending")
+  completedAt                 DateTime? @map("completed_at")
+  refundedAt                  DateTime? @map("refunded_at")
+  createdAt                   DateTime  @default(now()) @map("created_at")
+  updatedAt                   DateTime  @updatedAt @map("updated_at")
+
+  payer User  @relation("TransactionPayer", fields: [payerId], references: [id], onDelete: Cascade)
+  payee User? @relation("TransactionPayee", fields: [payeeId], references: [id], onDelete: SetNull)
+
+  @@index([payerId])
+  @@index([payeeId])
+  @@index([status])
+  @@schema("public")
+  @@map("transactions")
+}
+
+model PaymentMethod {
+  id                      String   @id @default(uuid())
+  userId                  String   @map("user_id")
+  type                    String
+  provider                String
+  providerPaymentMethodId String?  @map("provider_payment_method_id")
+  lastFour                String?  @map("last_four")
+  brand                   String?
+  expiryMonth             Int?     @map("expiry_month")
+  expiryYear              Int?     @map("expiry_year")
+  isDefault               Boolean  @default(false) @map("is_default")
+  isVerified              Boolean  @default(false) @map("is_verified")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@schema("public")
+  @@map("payment_methods")
+}
+
+model VerificationDocument {
+  id                 String   @id @default(uuid())
+  userId             String   @map("user_id")
+  documentType       String   @map("document_type")
+  documentNumber     String?  @map("document_number")
+  issuingAuthority   String?  @map("issuing_authority")
+  issueDate          DateTime? @map("issue_date")
+  expiryDate         DateTime? @map("expiry_date")
+  fileUrl            String   @map("file_url")
+  fileType           String?  @map("file_type")
+  verificationStatus String   @default("pending") @map("verification_status")
+  rejectionReason    String?  @map("rejection_reason")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@schema("public")
+  @@map("verification_documents")
+}
+
+model BackgroundCheck {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  checkType     String   @map("check_type")
+  checkProvider String   @map("check_provider")
+  status        String   @default("pending")
+  reportUrl     String?  @map("report_url")
+  completedAt   DateTime? @map("completed_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@schema("public")
+  @@map("background_checks")
+}

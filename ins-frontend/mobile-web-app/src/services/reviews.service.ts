@@ -38,7 +38,7 @@ class ReviewsService {
   async getReviewsForUser(userId: string, limit = 20, offset = 0): Promise<Review[]> {
     // paginated — returns array directly after api-client unwrap
     const response = await apiClient.get<Review[]>(
-      `/reviews/user/${userId}?limit=${limit}&offset=${offset}`,
+      `/reviews/user/${userId}?perPage=${limit}`,
     );
     return Array.isArray(response) ? response : [];
   }

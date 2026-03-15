@@ -83,8 +83,7 @@ class PaymentsService {
   }): Promise<Transaction[]> {
     const params = new URLSearchParams();
     if (filters?.type) params.append('type', filters.type);
-    if (filters?.limit) params.append('limit', String(filters.limit));
-    if (filters?.offset) params.append('offset', String(filters.offset));
+    if (filters?.limit) params.append('perPage', String(filters.limit));
 
     // paginated response — api-client unwraps to array
     const response = await apiClient.get<Transaction[]>(

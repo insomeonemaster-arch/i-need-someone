@@ -58,6 +58,9 @@ export interface CreateServiceRequestRequest {
 // Map flat Prisma budget fields → nested budget object used by screens
 const normalizeServiceRequest = (raw: any): ServiceRequest => ({
   ...raw,
+  category: typeof raw.category === 'object' && raw.category !== null
+    ? raw.category.name
+    : raw.category,
   budget: raw.budget ?? (raw.budgetMin != null
     ? { min: raw.budgetMin, max: raw.budgetMax ?? 0, currency: raw.budgetType ?? 'fixed' }
     : undefined),
@@ -73,8 +76,7 @@ class LocalServicesService {
     const params = new URLSearchParams();
     if (filters?.category) params.append('category', filters.category);
     if (filters?.location) params.append('location', filters.location);
-    if (filters?.limit) params.append('limit', String(filters.limit));
-    if (filters?.offset) params.append('offset', String(filters.offset));
+    if (filters?.limit) params.append('perPage', String(filters.limit));
 
     // paginated response
     const response = await apiClient.get<any[]>(`/local-services/browse?${params.toString()}`);

@@ -47,7 +47,7 @@ class SearchService {
     if (filters.skills?.length) params.append('skills', filters.skills.join(','));
     if (filters.budgetMin) params.append('budgetMin', String(filters.budgetMin));
     if (filters.budgetMax) params.append('budgetMax', String(filters.budgetMax));
-    if (filters.limit) params.append('limit', String(filters.limit));
+    if (filters.limit) params.append('perPage', String(filters.limit));
     if (filters.offset) params.append('offset', String(filters.offset));
 
     const response = await apiClient.get<GlobalSearchResult>(`/search?${params.toString()}`);

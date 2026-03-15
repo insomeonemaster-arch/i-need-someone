@@ -136,7 +136,7 @@ export default function BrowseJobCandidates() {
               <Card
                 key={job.id}
                 className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => navigate(`/jobs/${job.id}`)}
+                onClick={() => navigate(`/jobs/detail/${job.id}`)}
               >
                 <CardContent className="p-4">
                   <div className="flex flex-col gap-2">

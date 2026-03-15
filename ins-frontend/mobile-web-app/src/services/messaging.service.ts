@@ -104,7 +104,7 @@ class MessagingService {
   ): Promise<Message[]> {
     // paginated — api-client unwraps .data to array directly
     const response = await apiClient.get<Message[]>(
-      `/conversations/${conversationId}/messages?limit=${limit}&offset=${offset}`,
+      `/conversations/${conversationId}/messages?perPage=${limit}`,
     );
     return Array.isArray(response) ? response : [];
   }

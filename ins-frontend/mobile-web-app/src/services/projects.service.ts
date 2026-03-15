@@ -56,6 +56,9 @@ export interface CreateProjectRequest {
 // Map flat Prisma budget fields → nested budget object used by screens
 const normalizeProject = (raw: any): Project => ({
   ...raw,
+  category: typeof raw.category === 'object' && raw.category !== null
+    ? raw.category.name
+    : raw.category,
   budget: raw.budget ?? (raw.budgetMin != null
     ? { min: raw.budgetMin, max: raw.budgetMax ?? 0, currency: raw.budgetType ?? 'fixed' }
     : undefined),
@@ -75,8 +78,7 @@ class ProjectsService {
     if (filters?.skills?.length) params.append('skills', filters.skills.join(','));
     if (filters?.budget?.min) params.append('budgetMin', String(filters.budget.min));
     if (filters?.budget?.max) params.append('budgetMax', String(filters.budget.max));
-    if (filters?.limit) params.append('limit', String(filters.limit));
-    if (filters?.offset) params.append('offset', String(filters.offset));
+    if (filters?.limit) params.append('perPage', String(filters.limit));
 
     // paginated response
     const response = await apiClient.get<Project[]>(

@@ -75,6 +75,9 @@ export type ApplicationStatus = 'reviewing' | 'shortlisted' | 'interviewed' | 'o
 // Map flat Prisma salary fields → nested budget object used by screens
 const normalizeJob = (raw: any): Job => ({
   ...raw,
+  category: typeof raw.category === 'object' && raw.category !== null
+    ? raw.category.name
+    : raw.category,
   budget: raw.budget ?? (raw.salaryMin != null
     ? { min: raw.salaryMin, max: raw.salaryMax ?? 0, currency: raw.salaryType ?? 'yearly' }
     : undefined),
@@ -94,7 +97,7 @@ class JobsService {
     if (filters?.skills?.length) params.append('skills', filters.skills.join(','));
     if (filters?.budget?.min) params.append('budgetMin', String(filters.budget.min));
     if (filters?.budget?.max) params.append('budgetMax', String(filters.budget.max));
-    if (filters?.limit) params.append('limit', String(filters.limit));
+    if (filters?.limit) params.append('perPage', String(filters.limit));
     if (filters?.offset) params.append('offset', String(filters.offset));
 
     // paginated response

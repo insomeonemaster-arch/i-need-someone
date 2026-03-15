@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, AlertTriangle, CheckCircle } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Label } from '@/app/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/app/components/ui/radio-group';
 import { INSInputBar } from '@/app/components/ins/INSInputBar';
+import { disputesService } from '@/services';
 
 const disputeReasons = [
   { value: 'not-received', label: 'Service/Product not received' },
@@ -28,6 +29,8 @@ export default function DisputeFlow() {
   const [description, setDescription] = useState('');
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleINSMessage = (message: string, files?: File[]) => {
     setDescription(prev => prev ? `${prev}\n${message}` : message);
@@ -36,9 +39,25 @@ export default function DisputeFlow() {
     }
   };
 
-  const handleSubmit = () => {
-    console.log('Submit dispute:', { transactionId, requestId, projectId, selectedReason, description, attachments });
-    setIsSubmitted(true);
+  const handleSubmit = async () => {
+    if (!selectedReason || !description) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      await disputesService.createDispute({
+        transactionId: transactionId || undefined,
+        contextType: requestId ? 'service_request' : projectId ? 'project' : undefined,
+        contextId: requestId || projectId || undefined,
+        reason: selectedReason,
+        description,
+        evidence: attachments,
+      });
+      setIsSubmitted(true);
+    } catch {
+      setSubmitError('Failed to submit dispute. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isSubmitted) {
@@ -194,12 +213,16 @@ export default function DisputeFlow() {
             </Card>
 
             {/* Submit Button */}
+            {submitError && (
+              <p className="text-sm text-red-600">{submitError}</p>
+            )}
             <Button 
               className="w-full min-h-[44px]"
               onClick={handleSubmit}
-              disabled={!selectedReason || !description}
+              disabled={!selectedReason || !description || isSubmitting}
             >
-              Submit Dispute
+              {isSubmitting ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+              {isSubmitting ? 'Submitting...' : 'Submit Dispute'}
             </Button>
           </CardContent>
         </Card>

@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import {
   Card,
-  Table,
   Button,
   Tabs,
   INSAssistInput,
 } from '../components/ui/AdminComponents';
-import { Bot, Save, Loader2 } from 'lucide-react';
-import { settingsService, insService } from '../../services/admin.service';
+import { Bot, Save, Loader2, AlertCircle, FileText } from 'lucide-react';
+import { settingsService, insService, auditService, type AuditLogItem } from '../../services/admin.service';
 
 export default function INSSettings() {
   const [testInput, setTestInput] = useState('');
@@ -27,6 +26,24 @@ export default function INSSettings() {
   });
   const [guardrailSaving, setGuardrailSaving] = useState(false);
 
+  // Activity log
+  const [activityLogs, setActivityLogs] = useState<AuditLogItem[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState('');
+
+  const loadActivityLogs = async () => {
+    setActivityLoading(true);
+    setActivityError('');
+    try {
+      const res = await auditService.getLogs({ action: 'ins', per_page: '50' });
+      setActivityLogs(res.data || []);
+    } catch (e: unknown) {
+      setActivityError(e instanceof Error ? e.message : 'Failed to load activity logs');
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
   useEffect(() => {
     settingsService.getSettings().then(res => {
       const d = res.data;
@@ -39,6 +56,8 @@ export default function INSSettings() {
         pii_detection: d.ins_pii_detection !== false,
       });
     }).catch(() => { /* use defaults */ });
+
+    loadActivityLogs();
   }, []);
 
   const saveGuardrails = async () => {
@@ -80,121 +99,7 @@ export default function INSSettings() {
     }
   };
 
-  const promptTemplates = [
-    {
-      id: 'PROMPT-001',
-      name: 'Local Request Intake',
-      flow: 'Customer Onboarding',
-      lastUpdated: '2024-02-05',
-    },
-    {
-      id: 'PROMPT-002',
-      name: 'Provider Onboarding',
-      flow: 'Provider Verification',
-      lastUpdated: '2024-02-03',
-    },
-    {
-      id: 'PROMPT-003',
-      name: 'Project Intake',
-      flow: 'Project Creation',
-      lastUpdated: '2024-02-01',
-    },
-    {
-      id: 'PROMPT-004',
-      name: 'Employment Intake',
-      flow: 'Employment Post',
-      lastUpdated: '2024-01-28',
-    },
-  ];
 
-  const insActivityLog = [
-    {
-      id: 'LOG-5421',
-      user: 'Sarah Johnson',
-      action: 'Local request intake',
-      input: 'I need a plumber urgently',
-      output: 'Created request REQ-4521',
-      timestamp: '2024-02-10 14:30',
-    },
-    {
-      id: 'LOG-5420',
-      user: 'Admin User',
-      action: 'Rewrite admin note',
-      input: 'Provider looks good approve',
-      output: 'Provider verification documents reviewed...',
-      timestamp: '2024-02-10 12:15',
-    },
-    {
-      id: 'LOG-5419',
-      user: 'Robert Chen',
-      action: 'Project intake',
-      input: 'Need someone to build mobile app',
-      output: 'Created project PRJ-7829',
-      timestamp: '2024-02-09 11:00',
-    },
-  ];
-
-  const templateColumns = [
-    { key: 'id', label: 'Template ID', sortable: true },
-    { key: 'name', label: 'Name', sortable: true },
-    { key: 'flow', label: 'Flow', sortable: true },
-    { key: 'lastUpdated', label: 'Last Updated', sortable: true },
-    {
-      key: 'action',
-      label: 'Action',
-      render: () => (
-        <Button variant="primary" size="sm">
-          Edit
-        </Button>
-      ),
-    },
-  ];
-
-  const logColumns = [
-    { key: 'id', label: 'Log ID', sortable: true },
-    { key: 'user', label: 'User', sortable: true },
-    { key: 'action', label: 'Action', sortable: true },
-    { key: 'input', label: 'Input', sortable: false },
-    { key: 'output', label: 'Output', sortable: false },
-    { key: 'timestamp', label: 'Timestamp', sortable: true },
-  ];
-
-  const promptsTab = (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
-        <div className="text-sm text-gray-600">
-          Manage INS prompt templates for different flows
-        </div>
-        <Button variant="primary">
-          <Bot className="w-4 h-4 mr-2" />
-          New Template
-        </Button>
-      </div>
-      <Table columns={templateColumns} data={promptTemplates} />
-
-      <div className="mt-6">
-        <h4 className="font-medium mb-3">Example: Local Request Intake Template</h4>
-        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-          <div className="text-sm text-gray-700 mb-2">
-            <strong>System Prompt:</strong>
-          </div>
-          <p className="text-sm text-gray-600 mb-4">
-            You are INS, an AI assistant for "I Need Someone". When a customer
-            describes their need, extract: service type, urgency, location, budget,
-            and any special requirements. Create a structured request.
-          </p>
-          <div className="text-sm text-gray-700 mb-2">
-            <strong>Allowed Actions:</strong>
-          </div>
-          <ul className="text-sm text-gray-600 list-disc list-inside">
-            <li>Create local request</li>
-            <li>Match with providers</li>
-            <li>Send notifications</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  );
 
   const guardrailsTab = (
     <div className="space-y-6">
@@ -311,10 +216,49 @@ export default function INSSettings() {
 
   const activityLogTab = (
     <div>
-      <div className="mb-4 text-sm text-gray-600">
-        Searchable log of all INS interactions across the platform
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-sm text-gray-600">Admin actions related to INS settings and guardrail changes</p>
+        <Button variant="secondary" size="sm" onClick={loadActivityLogs} disabled={activityLoading}>
+          {activityLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Refresh'}
+        </Button>
       </div>
-      <Table columns={logColumns} data={insActivityLog} />
+
+      {activityError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          {activityError}
+        </div>
+      )}
+
+      {activityLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        </div>
+      ) : activityLogs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+          <FileText className="w-10 h-10 mb-3" />
+          <p className="text-sm">No INS-related activity logged yet</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden">
+          {activityLogs.map((log) => (
+            <div key={log.id} className="px-4 py-3 bg-white hover:bg-gray-50 text-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-xs text-gray-400">{log.log_id}</span>
+                  <span className="font-medium text-gray-800">{log.action}</span>
+                </div>
+                <span className="text-xs text-gray-400">{new Date(log.created_at).toLocaleString()}</span>
+              </div>
+              {log.user && (
+                <p className="text-xs text-gray-500 mt-1">
+                  by {log.user.firstName} {log.user.lastName} ({log.user.email})
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 
@@ -332,35 +276,10 @@ export default function INSSettings() {
           </p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="text-sm text-gray-600 mb-1">INS Interactions</div>
-            <div className="text-2xl font-semibold">1,847</div>
-            <div className="text-sm text-gray-500 mt-1">Last 7 days</div>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="text-sm text-gray-600 mb-1">Success Rate</div>
-            <div className="text-2xl font-semibold text-green-600">94.2%</div>
-            <div className="text-sm text-gray-500 mt-1">Completed actions</div>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="text-sm text-gray-600 mb-1">Active Prompts</div>
-            <div className="text-2xl font-semibold">8</div>
-            <div className="text-sm text-gray-500 mt-1">Templates</div>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="text-sm text-gray-600 mb-1">Avg. Response</div>
-            <div className="text-2xl font-semibold">1.2s</div>
-            <div className="text-sm text-gray-500 mt-1">Processing time</div>
-          </div>
-        </div>
-
         {/* INS Configuration */}
         <Card>
           <Tabs
             tabs={[
-              { id: 'prompts', label: 'Prompt Templates', content: promptsTab },
               { id: 'guardrails', label: 'Guardrails', content: guardrailsTab },
               { id: 'test', label: 'Test Console', content: testConsoleTab },
               { id: 'activity', label: 'Activity Log', content: activityLogTab },

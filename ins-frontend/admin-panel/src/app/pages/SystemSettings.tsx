@@ -233,166 +233,19 @@ export default function SystemSettings() {
     </div>
   );
 
-  const policiesTab = (
+  const locationTab = (
     <div className="space-y-6">
       <div>
-        <h4 className="font-medium mb-3">Legal Documents</h4>
-        <div className="space-y-3">
-          <div className="p-4 border border-gray-200 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <div className="font-medium">Terms of Service</div>
-                <div className="text-sm text-gray-500">Last updated: Feb 1, 2024</div>
-              </div>
-              <Button variant="secondary" size="sm">
-                Edit
-              </Button>
-            </div>
-          </div>
-
-          <div className="p-4 border border-gray-200 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <div className="font-medium">Privacy Policy</div>
-                <div className="text-sm text-gray-500">Last updated: Feb 1, 2024</div>
-              </div>
-              <Button variant="secondary" size="sm">
-                Edit
-              </Button>
-            </div>
-          </div>
-
-          <div className="p-4 border border-gray-200 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <div className="font-medium">Cookie Policy</div>
-                <div className="text-sm text-gray-500">Last updated: Jan 15, 2024</div>
-              </div>
-              <Button variant="secondary" size="sm">
-                Edit
-              </Button>
-            </div>
-          </div>
-
-          <div className="p-4 border border-gray-200 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <div className="font-medium">Provider Agreement</div>
-                <div className="text-sm text-gray-500">Last updated: Jan 20, 2024</div>
-              </div>
-              <Button variant="secondary" size="sm">
-                Edit
-              </Button>
-            </div>
-          </div>
-        </div>
+        <label className="block text-sm text-gray-600 mb-2">Default Search Radius (km)</label>
+        <input type="number" value={search_radius_default_km} onChange={e => setSearchRadiusDefault(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
       </div>
-
       <div>
-        <h4 className="font-medium mb-3">Compliance</h4>
-        <div className="space-y-2">
-          <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm">
-            ✓ GDPR Compliant
-          </div>
-          <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm">
-            ✓ CCPA Compliant
-          </div>
-          <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm">
-            ✓ SOC 2 Type II Certified
-          </div>
-        </div>
+        <label className="block text-sm text-gray-600 mb-2">Max Search Radius (km)</label>
+        <input type="number" value={search_radius_max_km} onChange={e => setSearchRadiusMax(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
       </div>
-    </div>
-  );
-
-  const appConfigTab = (
-    <div className="space-y-6">
-      <div>
-        <h4 className="font-medium mb-3">Mobile App Configuration</h4>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm text-gray-600 mb-2">
-              iOS App Version
-            </label>
-            <input
-              type="text"
-              defaultValue="2.4.1"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-2">
-              Android App Version
-            </label>
-            <input
-              type="text"
-              defaultValue="2.4.0"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-2">
-              Minimum Supported Version
-            </label>
-            <input
-              type="text"
-              defaultValue="2.0.0"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <h4 className="font-medium mb-3">Location Services</h4>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm text-gray-600 mb-2">Default Search Radius (km)</label>
-            <input type="number" value={search_radius_default_km} onChange={e => setSearchRadiusDefault(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-2">Max Search Radius (km)</label>
-            <input type="number" value={search_radius_max_km} onChange={e => setSearchRadiusMax(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <h4 className="font-medium mb-3">Matching Algorithm</h4>
-        <div className="space-y-3">
-          <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
-            <input type="checkbox" defaultChecked className="rounded" />
-            <div className="flex-1">
-              <div className="font-medium text-sm">Prioritize Proximity</div>
-              <div className="text-xs text-gray-500">
-                Match nearest available providers first
-              </div>
-            </div>
-          </label>
-          <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
-            <input type="checkbox" defaultChecked className="rounded" />
-            <div className="flex-1">
-              <div className="font-medium text-sm">Consider Rating</div>
-              <div className="text-xs text-gray-500">
-                Prioritize higher-rated providers
-              </div>
-            </div>
-          </label>
-          <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
-            <input type="checkbox" className="rounded" />
-            <div className="flex-1">
-              <div className="font-medium text-sm">Balance Load</div>
-              <div className="text-xs text-gray-500">
-                Distribute jobs evenly across providers
-              </div>
-            </div>
-          </label>
-        </div>
-      </div>
-
       <Button variant="primary" onClick={saveLocation} disabled={locationSaving}>
         {locationSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-        Save App Configuration
+        Save Location Settings
       </Button>
     </div>
   );
@@ -411,30 +264,6 @@ export default function SystemSettings() {
           </p>
         </div>
 
-        {/* System Status */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="text-sm text-gray-600 mb-1">Platform Status</div>
-            <div className="text-2xl font-semibold text-green-600">Operational</div>
-            <div className="text-sm text-gray-500 mt-1">All systems go</div>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="text-sm text-gray-600 mb-1">Uptime</div>
-            <div className="text-2xl font-semibold">99.97%</div>
-            <div className="text-sm text-gray-500 mt-1">Last 30 days</div>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="text-sm text-gray-600 mb-1">API Response</div>
-            <div className="text-2xl font-semibold">145ms</div>
-            <div className="text-sm text-gray-500 mt-1">Average</div>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="text-sm text-gray-600 mb-1">Last Deploy</div>
-            <div className="text-2xl font-semibold">Today</div>
-            <div className="text-sm text-gray-500 mt-1">v2.4.1</div>
-          </div>
-        </div>
-
         {/* Settings Tabs */}
         <Card>
           <Tabs
@@ -442,8 +271,7 @@ export default function SystemSettings() {
               { id: 'general', label: 'General', content: generalTab },
               { id: 'features', label: 'Feature Flags', content: featureFlagsTab },
               { id: 'payments', label: 'Payments', content: paymentsTab },
-              { id: 'policies', label: 'Policies', content: policiesTab },
-              { id: 'app', label: 'App Configuration', content: appConfigTab },
+              { id: 'location', label: 'Location', content: locationTab },
             ]}
           />
         </Card>

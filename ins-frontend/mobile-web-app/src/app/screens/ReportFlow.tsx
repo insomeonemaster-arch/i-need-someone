@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, CheckCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
+import { reportsService } from '@/services';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Label } from '@/app/components/ui/label';
@@ -46,6 +47,8 @@ export default function ReportFlow() {
   const [description, setDescription] = useState('');
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const reasons = reportReasons[reportType as keyof typeof reportReasons] || reportReasons.user;
 
@@ -56,10 +59,24 @@ export default function ReportFlow() {
     }
   };
 
-  const handleSubmit = () => {
-    // Mock submit
-    console.log('Submit report:', { reportType, entityId, selectedReason, description, attachments });
-    setIsSubmitted(true);
+  const handleSubmit = async () => {
+    if (!selectedReason || !entityId) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      await reportsService.createReport({
+        reportedEntityType: reportType as 'user' | 'content' | 'service',
+        reportedEntityId: entityId,
+        reportedUserId: reportType === 'user' ? entityId : undefined,
+        reason: selectedReason,
+        description: description || undefined,
+      });
+      setIsSubmitted(true);
+    } catch {
+      setSubmitError('Failed to submit report. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isSubmitted) {
@@ -180,12 +197,14 @@ export default function ReportFlow() {
             </div>
 
             {/* Submit Button */}
+            {submitError && <p className="text-sm text-red-600">{submitError}</p>}
             <Button 
               className="w-full min-h-[44px]"
               onClick={handleSubmit}
-              disabled={!selectedReason}
+              disabled={!selectedReason || isSubmitting}
             >
-              Submit Report
+              {isSubmitting ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+              {isSubmitting ? 'Submitting...' : 'Submit Report'}
             </Button>
           </CardContent>
         </Card>

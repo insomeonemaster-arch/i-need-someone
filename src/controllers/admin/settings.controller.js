@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const { success, error } = require('../../utils/response');
+const { logAdminAction } = require('../../utils/auditLog');
 
 const prisma = new PrismaClient();
 
@@ -57,6 +58,15 @@ const updateSettings = async (req, res, next) => {
         })
       )
     );
+    await logAdminAction({
+      userId: req.user.id,
+      action: 'settings.updated',
+      resourceType: 'SystemSetting',
+      resourceId: null,
+      changes: Object.fromEntries(entries),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
     return success(res, { message: 'Settings saved' });
   } catch (err) {
     next(err);

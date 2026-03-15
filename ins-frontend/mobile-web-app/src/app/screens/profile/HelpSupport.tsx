@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, MessageCircle, Mail, Phone, FileText, HelpCircle, Book } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Mail, Phone, FileText, HelpCircle, Book, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Label } from '@/app/components/ui/label';
+import { supportService } from '@/services';
 
 const faqCategories = [
   {
@@ -38,6 +40,25 @@ const faqCategories = [
 
 export default function HelpSupport() {
   const navigate = useNavigate();
+  const [subject, setSubject] = useState('');
+  const [category, setCategory] = useState<'billing' | 'technical' | 'account' | 'dispute' | 'other'>('other');
+  const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    if (!subject.trim() || !message.trim()) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      await supportService.createTicket({ subject, description: message, category });
+      navigate('/support/tickets');
+    } catch {
+      setSubmitError('Failed to submit ticket. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
@@ -115,6 +136,8 @@ export default function HelpSupport() {
                   id="subject"
                   placeholder="Brief description of your issue"
                   className="bg-white"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
                 />
               </div>
 
@@ -123,14 +146,14 @@ export default function HelpSupport() {
                 <select
                   id="category"
                   className="w-full h-10 px-3 rounded-md border bg-white text-sm"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as typeof category)}
                 >
-                  <option>Select a category</option>
-                  <option>Account Issues</option>
-                  <option>Payment Problems</option>
-                  <option>Technical Support</option>
-                  <option>Report a Bug</option>
-                  <option>Feature Request</option>
-                  <option>Other</option>
+                  <option value="account">Account Issues</option>
+                  <option value="billing">Payment Problems</option>
+                  <option value="technical">Technical Support</option>
+                  <option value="dispute">Dispute</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
 
@@ -141,10 +164,19 @@ export default function HelpSupport() {
                   placeholder="Describe your issue in detail..."
                   rows={5}
                   className="bg-white resize-none"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
                 />
               </div>
 
-              <Button className="w-full">
+              {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+
+              <Button
+                className="w-full"
+                onClick={handleSubmit}
+                disabled={isSubmitting || !subject.trim() || !message.trim()}
+              >
+                {isSubmitting ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
                 Submit Request
               </Button>
             </div>

@@ -162,8 +162,9 @@ class ApiClient {
         signal: AbortSignal.timeout(this.timeout),
       });
 
-      // Handle 401 Unauthorized - try to refresh token
-      if (response.status === 401 && !retried) {
+      // Handle 401 Unauthorized - try to refresh token (but not for login/register endpoints)
+      const isAuthEndpoint = endpoint.includes('/auth/login') || endpoint.includes('/auth/register');
+      if (response.status === 401 && !retried && !isAuthEndpoint) {
         const refreshed = await this.refreshAccessToken();
         if (refreshed) {
           const newHeaders = this.getHeaders();

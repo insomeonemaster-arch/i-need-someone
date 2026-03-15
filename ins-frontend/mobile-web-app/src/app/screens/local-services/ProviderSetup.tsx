@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, CheckCircle, MessageCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, MessageCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -8,6 +8,7 @@ import { Textarea } from '@/app/components/ui/textarea';
 import { Label } from '@/app/components/ui/label';
 import { Switch } from '@/app/components/ui/switch';
 import { INSIntakeModal } from '@/app/components/ins/INSIntakeModal';
+import { providerService } from '@/services';
 
 const serviceCategories = [
   'Plumbing',
@@ -24,6 +25,12 @@ export default function LocalServiceProviderSetup() {
   const navigate = useNavigate();
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [isINSOpen, setIsINSOpen] = useState(false);
+  const [businessName, setBusinessName] = useState('');
+  const [bio, setBio] = useState('');
+  const [rate, setRate] = useState('');
+  const [serviceArea, setServiceArea] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const toggleService = (service: string) => {
     setSelectedServices((prev) =>
@@ -56,6 +63,8 @@ export default function LocalServiceProviderSetup() {
               id="businessName"
               placeholder="e.g., Mike's Plumbing Services"
               className="bg-white"
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
             />
           </div>
 
@@ -90,6 +99,8 @@ export default function LocalServiceProviderSetup() {
               placeholder="Tell clients about your experience and what makes you stand out..."
               rows={4}
               className="bg-white resize-none"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
             />
           </div>
 
@@ -114,6 +125,8 @@ export default function LocalServiceProviderSetup() {
                 type="number"
                 placeholder="0"
                 className="bg-white pl-7"
+                value={rate}
+                onChange={(e) => setRate(e.target.value)}
               />
             </div>
           </div>
@@ -126,6 +139,8 @@ export default function LocalServiceProviderSetup() {
               type="number"
               placeholder="e.g., 15"
               className="bg-white"
+              value={serviceArea}
+              onChange={(e) => setServiceArea(e.target.value)}
             />
           </div>
 
@@ -147,15 +162,39 @@ export default function LocalServiceProviderSetup() {
 
         {/* Submit Button */}
         <div className="border-t bg-white p-4 space-y-2">
+          {submitError && <p className="text-sm text-red-600">{submitError}</p>}
           <Button
             className="w-full"
             size="lg"
-            onClick={() => {
-              // Simulate submission
-              navigate('/');
+            disabled={isSubmitting}
+            onClick={async () => {
+              if (!businessName.trim()) {
+                setSubmitError('Business name is required.');
+                return;
+              }
+              setIsSubmitting(true);
+              setSubmitError(null);
+              try {
+                await providerService.createProfile({
+                  title: businessName,
+                  bio,
+                  hourlyRate: parseFloat(rate) || 0,
+                });
+                if (serviceArea) {
+                  await providerService.updateProfile({
+                    serviceRadius: parseInt(serviceArea) || undefined,
+                  });
+                }
+                navigate('/');
+              } catch (err: any) {
+                setSubmitError(err?.message || 'Failed to create profile. Please try again.');
+              } finally {
+                setIsSubmitting(false);
+              }
             }}
           >
-            Start Offering Services
+            {isSubmitting ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+            {isSubmitting ? 'Saving...' : 'Start Offering Services'}
           </Button>
           <Button
             variant="outline"

@@ -58,7 +58,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { icon: MessageSquare, label: 'Communications', path: '/communications' },
     { icon: Bot, label: 'INS Settings', path: '/ins-settings' },
     { icon: FolderTree, label: 'Categories & Zones', path: '/categories-zones' },
-    { icon: Shield, label: 'Roles & Permissions', path: '/roles-permissions' },
+    // { icon: Shield, label: 'Roles & Permissions', path: '/roles-permissions' },
     { icon: ShieldCheck, label: 'Document Approval', path: '/document-approval' },
     { icon: FileText, label: 'Audit Logs', path: '/audit-logs' },
     { icon: Settings, label: 'System Settings', path: '/system-settings' },

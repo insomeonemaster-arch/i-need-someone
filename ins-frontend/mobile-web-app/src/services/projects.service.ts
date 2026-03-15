@@ -42,14 +42,25 @@ export interface Proposal {
 export interface CreateProjectRequest {
   title: string;
   description: string;
-  category: string;
-  budget?: {
-    min: number;
-    max: number;
-    currency?: string;
-  };
-  skills?: string[];
+  categoryId: string;
+  projectScope?: 'small' | 'medium' | 'large';
+  estimatedDuration?: string;
+  budgetMin?: number;
+  budgetMax?: number;
+  budgetType?: 'fixed' | 'hourly' | 'milestone-based';
+  requiredSkills?: string[];
+  deliverables?: string[];
+  deadline?: string;
 }
+
+// Map flat Prisma budget fields → nested budget object used by screens
+const normalizeProject = (raw: any): Project => ({
+  ...raw,
+  budget: raw.budget ?? (raw.budgetMin != null
+    ? { min: raw.budgetMin, max: raw.budgetMax ?? 0, currency: raw.budgetType ?? 'fixed' }
+    : undefined),
+  skills: raw.skills ?? raw.requiredSkills ?? [],
+});
 
 class ProjectsService {
   async browseProjects(filters?: {
@@ -72,21 +83,23 @@ class ProjectsService {
       `/projects/browse?${params.toString()}`,
       false,
     );
-    return Array.isArray(response) ? response : [];
+    return Array.isArray(response) ? response.map(normalizeProject) : [];
   }
 
   async getMyProjects(): Promise<Project[]> {
     // paginated response
     const response = await apiClient.get<Project[]>('/projects');
-    return Array.isArray(response) ? response : [];
+    return Array.isArray(response) ? response.map(normalizeProject) : [];
   }
 
   async getProject(projectId: string): Promise<Project> {
-    return apiClient.get(`/projects/${projectId}`);
+    const raw = await apiClient.get<any>(`/projects/${projectId}`);
+    return normalizeProject(raw);
   }
 
   async createProject(data: CreateProjectRequest): Promise<Project> {
-    return apiClient.post('/projects', data);
+    const raw = await apiClient.post<any>('/projects', data);
+    return normalizeProject(raw);
   }
 
   async submitProposal(

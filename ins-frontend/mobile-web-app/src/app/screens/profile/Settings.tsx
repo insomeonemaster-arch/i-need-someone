@@ -373,7 +373,8 @@ export default function Settings() {
       const s = settingsRef.current;
       const pushTypes  = s.push  ? ['payments','reviews','system',...(s.messages?['messages']:[]),...(s.jobs?['bookings']:[])] : [];
       const emailTypes = s.email ? ['payments','reviews','system',...(s.messages?['messages']:[]),...(s.jobs?['bookings']:[]),...(s.marketing?['marketing']:[])] : [];
-      const smsTypes   = s.sms   ? ['payments',...(s.messages?['messages']:[]),...(s.jobs?['bookings']:[])] : [];
+      // SMS disabled — const smsTypes = s.sms ? [...] : [];
+      const smsTypes: string[] = [];
       saves.push(notificationsService.updateSettings({ push:{types:pushTypes}, email:{types:emailTypes}, sms:{types:smsTypes} }));
     }
     if (dirty.privacy) saves.push(usersService.updatePrivacySettings(privacyRef.current));
@@ -508,7 +509,8 @@ export default function Settings() {
               {([
                 ['push',      'Push Notifications',  'Receive notifications on your device'],
                 ['email',     'Email Notifications', 'Receive updates via email'],
-                ['sms',       'SMS Notifications',   'Receive text message alerts'],
+                // SMS Notifications disabled — will be re-enabled when Twilio is configured
+                // ['sms',       'SMS Notifications',   'Receive text message alerts'],
                 ['messages',  'New Messages',         'Get notified of new messages'],
                 ['jobs',      'Job Opportunities',   'Receive job recommendations'],
                 ['marketing', 'Marketing Updates',   'News and promotional content'],

@@ -1,49 +1,72 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ArrowLeft, MapPin, Briefcase, DollarSign, Clock, Building2 } from 'lucide-react';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { Separator } from '@/app/components/ui/separator';
+import { jobsService, Job } from '@/services';
 
 export default function JobDetail() {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
+  const [job, setJob] = useState<Job | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data
-  const job = {
-    id,
-    title: 'Marketing Manager',
-    company: 'TechStart Inc.',
-    location: 'San Francisco, CA',
-    type: 'Full-time',
-    experience: 'Mid Level',
-    salary: '$85k - $110k',
-    postedDate: '2026-01-22',
-    applicants: 32,
-    description: `We're looking for an experienced Marketing Manager to lead our growing marketing team. You'll be responsible for developing and executing marketing strategies that drive brand awareness and customer acquisition.`,
-    responsibilities: [
-      'Develop and execute comprehensive marketing strategies',
-      'Lead a team of 3-5 marketing professionals',
-      'Manage marketing budget and ROI tracking',
-      'Collaborate with sales and product teams',
-      'Oversee digital marketing campaigns and social media',
-    ],
-    requirements: [
-      '5+ years of marketing experience',
-      'Proven track record in B2B marketing',
-      'Strong analytical and strategic thinking skills',
-      'Experience with marketing automation tools',
-      'Excellent communication and leadership abilities',
-    ],
-    benefits: [
-      'Health, dental, and vision insurance',
-      '401(k) matching',
-      'Flexible work hours',
-      'Remote work options',
-      'Professional development budget',
-      'Unlimited PTO',
-    ],
-  };
+  useEffect(() => {
+    if (!id) return;
+    jobsService
+      .getJob(id)
+      .then(setJob)
+      .catch(() => setError('Failed to load job.'))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full bg-gray-50">
+        <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-lg">
+            <ArrowLeft className="size-5" />
+          </button>
+          <h1 className="font-semibold">Job Details</h1>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !job) {
+    return (
+      <div className="flex flex-col h-full bg-gray-50">
+        <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-lg">
+            <ArrowLeft className="size-5" />
+          </button>
+          <h1 className="font-semibold">Job Details</h1>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-gray-600">{error ?? 'Job not found'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const salaryLabel =
+    job.budget?.min && job.budget?.max
+      ? `$${(job.budget.min / 1000).toFixed(0)}k – $${(job.budget.max / 1000).toFixed(0)}k`
+      : 'Negotiable';
+
+  const locationLabel = [job.city, job.state].filter(Boolean).join(', ') || job.workLocation || '—';
+
+  const typeLabel = job.employmentType
+    ? job.employmentType.replace(/_/g, '-').replace(/\b\w/g, (l) => l.toUpperCase())
+    : '—';
+
+  const postedDate = new Date(job.createdAt).toLocaleDateString();
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
@@ -64,14 +87,15 @@ export default function JobDetail() {
           <CardContent className="p-5 space-y-4">
             <div>
               <h2 className="text-xl font-semibold mb-1">{job.title}</h2>
-              <p className="text-gray-600 flex items-center gap-1 mb-3">
-                <Building2 className="size-4" />
-                {job.company}
-              </p>
-              
+              {job.companyName && (
+                <p className="text-gray-600 flex items-center gap-1 mb-3">
+                  <Building2 className="size-4" />
+                  {job.companyName}
+                </p>
+              )}
               <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{job.type}</Badge>
-                <Badge variant="secondary">{job.experience}</Badge>
+                <Badge variant="secondary">{typeLabel}</Badge>
+                {job.workLocation && <Badge variant="secondary">{job.workLocation.replace(/_/g, ' ')}</Badge>}
               </div>
             </div>
 
@@ -80,19 +104,15 @@ export default function JobDetail() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <MapPin className="size-4" />
-                <span>{job.location}</span>
+                <span>{locationLabel}</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <DollarSign className="size-4" />
-                <span>{job.salary}</span>
+                <span>{salaryLabel}</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Clock className="size-4" />
-                <span>Posted on {job.postedDate}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Briefcase className="size-4" />
-                <span>{job.applicants} applicants</span>
+                <span>Posted on {postedDate}</span>
               </div>
             </div>
           </CardContent>
@@ -106,49 +126,21 @@ export default function JobDetail() {
           </CardContent>
         </Card>
 
-        {/* Responsibilities */}
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <h3 className="font-semibold">Key Responsibilities</h3>
-            <ul className="space-y-2">
-              {job.responsibilities.map((item, index) => (
-                <li key={index} className="flex gap-2 text-sm text-gray-700">
-                  <span className="text-green-600 font-bold">•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-
-        {/* Requirements */}
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <h3 className="font-semibold">Requirements</h3>
-            <ul className="space-y-2">
-              {job.requirements.map((item, index) => (
-                <li key={index} className="flex gap-2 text-sm text-gray-700">
-                  <span className="text-green-600 font-bold">•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-
-        {/* Benefits */}
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <h3 className="font-semibold">Benefits</h3>
-            <div className="flex flex-wrap gap-2">
-              {job.benefits.map((benefit, index) => (
-                <Badge key={index} variant="secondary" className="text-xs">
-                  {benefit}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Skills */}
+        {job.skills && job.skills.length > 0 && (
+          <Card>
+            <CardContent className="p-5 space-y-3">
+              <h3 className="font-semibold">Required Skills</h3>
+              <div className="flex flex-wrap gap-2">
+                {job.skills.map((skill, index) => (
+                  <Badge key={index} variant="secondary">
+                    {skill}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Action Buttons */}
@@ -156,9 +148,7 @@ export default function JobDetail() {
         <Button
           className="w-full"
           size="lg"
-          onClick={() => {
-            navigate('/my-jobs');
-          }}
+          onClick={() => navigate('/my-jobs')}
         >
           Apply Now
         </Button>

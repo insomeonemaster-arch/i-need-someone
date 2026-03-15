@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { X, Mic, Paperclip, Send, ChevronDown } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { X, Mic, Paperclip, Send } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Progress } from '@/app/components/ui/progress';
 import { motion, AnimatePresence } from 'motion/react';
+import { insService } from '@/services/ins.service';
 
 interface Message {
   id: string;
@@ -26,54 +27,6 @@ export interface INSIntakeModalProps {
   onManualFallback: () => void;
 }
 
-// Question sets for different categories and modes
-const questionSets = {
-  'local-services-client': [
-    'What type of service do you need?',
-    'Can you describe what needs to be done?',
-    'Where is the service needed?',
-    'When do you need this done?',
-    'What\'s your budget for this service?',
-  ],
-  'local-services-provider': [
-    'What services do you offer?',
-    'What\'s your business or professional name?',
-    'How many years of experience do you have?',
-    'What\'s your hourly rate?',
-    'How far are you willing to travel for jobs?',
-  ],
-  'jobs-client': [
-    'What position are you hiring for?',
-    'What\'s your company name?',
-    'Where is this position located?',
-    'Is this full-time, part-time, or contract?',
-    'What\'s the salary range?',
-    'What are the key responsibilities?',
-  ],
-  'jobs-provider': [
-    'What type of job are you looking for?',
-    'What\'s your professional title?',
-    'What\'s your experience level?',
-    'What location are you interested in?',
-    'What\'s your expected salary range?',
-  ],
-  'projects-client': [
-    'What type of project do you need help with?',
-    'Can you describe the project in detail?',
-    'What skills are required?',
-    'What\'s your budget range?',
-    'When do you need this completed?',
-    'What are the expected deliverables?',
-  ],
-  'projects-provider': [
-    'What\'s your professional title?',
-    'What services do you offer?',
-    'How many years of experience do you have?',
-    'What\'s your hourly rate?',
-    'Do you have a portfolio website?',
-  ],
-};
-
 export function INSIntakeModal({
   isOpen,
   onClose,
@@ -85,24 +38,24 @@ export function INSIntakeModal({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [collectedData, setCollectedData] = useState<any>({});
   const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [progress, setProgress] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef<number>(0);
   const currentYRef = useRef<number>(0);
-
-  const questionKey = `${category}-${mode}` as keyof typeof questionSets;
-  const questions = useMemo(() => questionSets[questionKey] || [], [questionKey]);
-  const progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
+  const initStartedRef = useRef(false);
 
   const handleClose = useCallback(() => {
     setMessages([]);
-    setCurrentQuestionIndex(0);
-    setCollectedData({});
+    setConversationId(null);
+    setProgress(0);
+    setIsTyping(false);
     setQuickActions([]);
+    initStartedRef.current = false;
     onClose();
   }, [onClose]);
 
@@ -149,19 +102,6 @@ export function INSIntakeModal({
     };
   }, [isOpen]);
 
-  const getCategoryAction = useCallback((cat: string, md: string) => {
-    if (md === 'client') {
-      if (cat === 'local-services') return 'request a local service';
-      if (cat === 'jobs') return 'post a job opening';
-      if (cat === 'projects') return 'post your project';
-    } else {
-      if (cat === 'local-services') return 'set up your service profile';
-      if (cat === 'jobs') return 'set up your job seeker profile';
-      if (cat === 'projects') return 'set up your freelancer profile';
-    }
-    return 'get started';
-  }, []);
-
   const addINSMessage = useCallback((content: string, actions?: QuickAction[]) => {
     setMessages((prev) => [
       ...prev,
@@ -177,28 +117,6 @@ export function INSIntakeModal({
     }
   }, []);
 
-  useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      // Initial greeting
-      const greeting = mode === 'client' 
-        ? `Hi! I'm INS, your AI assistant. I'll help you ${getCategoryAction(category, mode)}. Let's get started!`
-        : `Hi! I'm INS, your AI assistant. I'll help you ${getCategoryAction(category, mode)}. Ready to get started?`;
-      
-      setTimeout(() => {
-        addINSMessage(greeting);
-        setTimeout(() => {
-          if (questions[0]) {
-            addINSMessage(questions[0]);
-          }
-        }, 800);
-      }, 300);
-    }
-  }, [isOpen, messages.length, mode, category, getCategoryAction, addINSMessage, questions]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
   const addUserMessage = (content: string) => {
     setMessages((prev) => [
       ...prev,
@@ -211,42 +129,76 @@ export function INSIntakeModal({
     ]);
   };
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  // Start a new conversation with the backend when the modal opens
+  useEffect(() => {
+    if (isOpen && !initStartedRef.current) {
+      initStartedRef.current = true;
 
-    addUserMessage(input);
-    const userResponse = input;
+      setIsTyping(true);
+      setProgress(5);
+      insService.startConversation(category, mode)
+        .then((data) => {
+          setConversationId(data.conversation.id);
+          setIsTyping(false);
+          setProgress(10);
+          addINSMessage(data.greeting);
+        })
+        .catch(() => {
+          setIsTyping(false);
+          addINSMessage(
+            "I'm sorry, I'm having trouble connecting right now. You can try again or use the manual setup below.",
+          );
+        });
+    }
+
+    if (!isOpen) {
+      initStartedRef.current = false;
+    }
+  }, [isOpen, category, mode, addINSMessage]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isTyping]);
+
+  const handleSend = useCallback(async () => {
+    if (!input.trim() || !conversationId || isTyping) return;
+
+    const content = input.trim();
+    addUserMessage(content);
     setInput('');
     setQuickActions([]);
+    setIsTyping(true);
 
-    // Store the answer
-    const fieldKey = `question_${currentQuestionIndex}`;
-    setCollectedData((prev: any) => ({
-      ...prev,
-      [fieldKey]: userResponse,
-    }));
+    try {
+      const response = await insService.sendMessage(conversationId, content);
+      setIsTyping(false);
+      setProgress((prev) => Math.min(prev + 12, 90));
+      addINSMessage(response.message.content);
 
-    // Move to next question
-    setTimeout(() => {
-      if (currentQuestionIndex < questions.length - 1) {
-        const nextIndex = currentQuestionIndex + 1;
-        setCurrentQuestionIndex(nextIndex);
-        addINSMessage(questions[nextIndex]);
-      } else {
-        // All questions answered
-        addINSMessage("Perfect! I've collected all the information. Let me prepare a summary for you to review...");
-        setTimeout(() => {
-          onComplete({
-            ...collectedData,
-            [fieldKey]: userResponse,
-            category,
-            mode,
-          });
+      if (response.isComplete) {
+        setProgress(100);
+        setTimeout(async () => {
+          if (mode === 'client') {
+            try {
+              const submitResult = await insService.submitConversation(conversationId);
+              onComplete({ ...response.collectedData, ...submitResult });
+            } catch {
+              // If entity creation fails, still let the user proceed with collected data
+              onComplete(response.collectedData ?? {});
+            }
+          } else {
+            onComplete(response.collectedData ?? {});
+          }
           handleClose();
-        }, 1500);
+        }, 1200);
       }
-    }, 600);
-  };
+    } catch {
+      setIsTyping(false);
+      addINSMessage(
+        "Sorry, I had trouble processing that. Please try again or use the manual option below.",
+      );
+    }
+  }, [input, conversationId, isTyping, mode, addINSMessage, handleClose, onComplete]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -309,7 +261,7 @@ export function INSIntakeModal({
                 <div className="text-white">
                   <h2 className="font-semibold text-sm md:text-base">INS Assistant</h2>
                   <p className="text-xs text-white/80">
-                    {currentQuestionIndex + 1} of {questions.length} questions
+                    {conversationId ? `${messages.filter(m => m.role === 'user').length} exchanges` : 'Connecting…'}
                   </p>
                 </div>
               </div>
@@ -362,6 +314,19 @@ export function INSIntakeModal({
                 </div>
               )}
 
+              {/* Typing indicator */}
+              {isTyping && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-3">
+                    <div className="flex gap-1 items-center h-5">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div ref={messagesEndRef} />
             </div>
 
@@ -392,7 +357,7 @@ export function INSIntakeModal({
 
                 <Button
                   onClick={handleSend}
-                  disabled={!input.trim()}
+                  disabled={!input.trim() || !conversationId || isTyping}
                   size="icon"
                   className="rounded-full flex-shrink-0 min-w-[44px] min-h-[44px]"
                 >

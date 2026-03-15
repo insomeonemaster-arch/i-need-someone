@@ -49,4 +49,13 @@ export type { ProviderProfile, ProviderPublicProfile, UpdateProfileRequest } fro
 
 export { socketService } from './socket.service';
 
+export { insService } from './ins.service';
+export type { InsConversation, InsMessage, StartConversationResponse, SendMessageResponse, SubmitConversationResponse } from './ins.service';
+
+export { disputesService } from './disputes.service';
+export type { Dispute, CreateDisputeRequest } from './disputes.service';
+
+export { reportsService } from './reports.service';
+export type { CreateReportRequest } from './reports.service';
+
 export { API_CONFIG, STORAGE_KEYS } from './config';

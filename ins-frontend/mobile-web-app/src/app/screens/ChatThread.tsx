@@ -197,7 +197,12 @@ export default function ChatThread() {
               <Flag className="size-4 mr-2" />
               Report User
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-red-600">
+            <DropdownMenuItem className="text-red-600" onClick={async () => {
+              if (conversationId) {
+                await messagingService.archiveConversation(conversationId);
+                navigate('/messages');
+              }
+            }}>
               <Ban className="size-4 mr-2" />
               Block User
             </DropdownMenuItem>

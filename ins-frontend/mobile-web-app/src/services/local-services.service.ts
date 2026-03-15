@@ -55,6 +55,14 @@ export interface CreateServiceRequestRequest {
   images?: string[];
 }
 
+// Map flat Prisma budget fields → nested budget object used by screens
+const normalizeServiceRequest = (raw: any): ServiceRequest => ({
+  ...raw,
+  budget: raw.budget ?? (raw.budgetMin != null
+    ? { min: raw.budgetMin, max: raw.budgetMax ?? 0, currency: raw.budgetType ?? 'fixed' }
+    : undefined),
+});
+
 class LocalServicesService {
   async browse(filters?: {
     category?: string;
@@ -76,7 +84,7 @@ class LocalServicesService {
   async getRequests(): Promise<ServiceRequest[]> {
     // paginated response
     const response = await apiClient.get<ServiceRequest[]>('/local-services/requests');
-    return Array.isArray(response) ? response : [];
+    return Array.isArray(response) ? response.map(normalizeServiceRequest) : [];
   }
 
   async createRequest(data: CreateServiceRequestRequest): Promise<ServiceRequest> {
@@ -84,7 +92,8 @@ class LocalServicesService {
   }
 
   async getRequest(requestId: string): Promise<ServiceRequest> {
-    return apiClient.get(`/local-services/requests/${requestId}`);
+    const raw = await apiClient.get<any>(`/local-services/requests/${requestId}`);
+    return normalizeServiceRequest(raw);
   }
 
   async updateRequest(

@@ -79,13 +79,13 @@ export default function AccountInfo() {
       let newPhone = updated.phone ?? loadedPhoneRef.current;
       updateUser({ ...toAuthUser(updated), phone: newPhone });
 
-      // Only update phone if the user actually changed it from what was loaded
-      if (formData.phone !== loadedPhoneRef.current) {
-        await usersService.updatePhone(formData.phone);
-        loadedPhoneRef.current = formData.phone;
-        newPhone = formData.phone;
-        updateUser({ ...toAuthUser(updated), phone: newPhone });
-      }
+      // SMS/phone verification disabled — updatePhone commented out
+      // if (formData.phone !== loadedPhoneRef.current) {
+      //   await usersService.updatePhone(formData.phone);
+      //   loadedPhoneRef.current = formData.phone;
+      //   newPhone = formData.phone;
+      //   updateUser({ ...toAuthUser(updated), phone: newPhone });
+      // }
 
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -189,6 +189,7 @@ export default function AccountInfo() {
                 <p className="text-xs text-gray-500">Contact support to change email</p>
               </div>
 
+              {/* Phone Number field — SMS disabled, will be re-enabled when Twilio is configured
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
                 <div className="relative">
@@ -203,6 +204,7 @@ export default function AccountInfo() {
                   />
                 </div>
               </div>
+              */}
 
               <div className="space-y-2">
                 <Label htmlFor="location">Location</Label>
@@ -251,10 +253,12 @@ export default function AccountInfo() {
                   {user?.isEmailVerified ? '✓ Verified' : 'Pending'}
                 </span>
               </div>
+              {/* Phone Verified — SMS disabled
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">Phone Verified</span>
                 <span className="text-gray-400 font-medium">Not verified</span>
               </div>
+              */}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">Member Since</span>
                 <span className="font-medium">

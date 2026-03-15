@@ -8,45 +8,78 @@ export interface Job {
   id: string;
   title: string;
   description: string;
-  category?: string;
+  categoryId?: string;
+  category?: string | { id: string; name: string };
+  employmentType?: 'full_time' | 'part_time' | 'contract' | 'temporary';
+  workLocation?: 'on_site' | 'remote' | 'hybrid';
+  city?: string;
+  state?: string;
+  companyName?: string;
+  // Normalised from salaryMin/salaryMax by normalizeJob()
   budget?: {
     min: number;
     max: number;
     currency: string;
   };
+  // Raw backend fields
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryType?: string;
+  requiredSkills?: string[];
   skills?: string[];
+  minExperienceYears?: number;
+  positionsAvailable?: number;
+  applicationDeadline?: string;
   status: 'open' | 'in-progress' | 'closed' | 'completed';
-  clientId: string;
+  clientId?: string;
+  employerId?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface JobApplication {
   id: string;
-  jobId: string;
-  providerId: string;
-  coverLetter: string;
-  proposedBudget: number;
-  // Backend statuses — note 'accepted'/'withdrawn' are not valid; use 'hired'/'rejected'
+  jobId?: string;
+  jobPostingId?: string;
+  providerId?: string;
+  applicantId?: string;
+  coverLetter?: string;
+  resumeUrl?: string;
+  expectedSalary?: number;
   status: 'pending' | 'reviewing' | 'shortlisted' | 'interviewed' | 'offered' | 'hired' | 'rejected';
   createdAt: string;
   updatedAt: string;
+  jobPosting?: Job;
 }
 
 export interface CreateJobRequest {
   title: string;
   description: string;
-  category?: string;
-  budget?: {
-    min: number;
-    max: number;
-    currency?: string;
-  };
-  skills?: string[];
+  categoryId: string;
+  employmentType: 'full_time' | 'part_time' | 'contract' | 'temporary';
+  workLocation: 'on_site' | 'remote' | 'hybrid';
+  city?: string;
+  state?: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryType?: 'hourly' | 'monthly' | 'yearly';
+  requiredSkills?: string[];
+  companyName?: string;
+  minExperienceYears?: number;
+  positionsAvailable?: number;
 }
 
 // Valid status values accepted by backend updateApplicationStatus
 export type ApplicationStatus = 'reviewing' | 'shortlisted' | 'interviewed' | 'offered' | 'hired' | 'rejected';
+
+// Map flat Prisma salary fields → nested budget object used by screens
+const normalizeJob = (raw: any): Job => ({
+  ...raw,
+  budget: raw.budget ?? (raw.salaryMin != null
+    ? { min: raw.salaryMin, max: raw.salaryMax ?? 0, currency: raw.salaryType ?? 'yearly' }
+    : undefined),
+  skills: raw.skills ?? raw.requiredSkills ?? [],
+});
 
 class JobsService {
   async browseJobs(filters?: {
@@ -66,21 +99,23 @@ class JobsService {
 
     // paginated response
     const response = await apiClient.get<Job[]>(`/jobs/browse?${params.toString()}`, false);
-    return Array.isArray(response) ? response : [];
+    return Array.isArray(response) ? response.map(normalizeJob) : [];
   }
 
   async getMyPostings(): Promise<Job[]> {
     // paginated response
     const response = await apiClient.get<Job[]>('/jobs/postings');
-    return Array.isArray(response) ? response : [];
+    return Array.isArray(response) ? response.map(normalizeJob) : [];
   }
 
   async createJob(data: CreateJobRequest): Promise<Job> {
-    return apiClient.post('/jobs/postings', data);
+    const raw = await apiClient.post<any>('/jobs/postings', data);
+    return normalizeJob(raw);
   }
 
   async getJob(jobId: string): Promise<Job> {
-    return apiClient.get(`/jobs/postings/${jobId}`, false);
+    const raw = await apiClient.get<any>(`/jobs/postings/${jobId}`, false);
+    return normalizeJob(raw);
   }
 
   async updateJob(jobId: string, data: Partial<CreateJobRequest>): Promise<Job> {

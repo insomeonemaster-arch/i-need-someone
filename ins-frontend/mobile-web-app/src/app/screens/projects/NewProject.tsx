@@ -1,38 +1,67 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, MessageCircle } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Label } from '@/app/components/ui/label';
 import { INSIntakeModal } from '@/app/components/ins/INSIntakeModal';
+import { projectsService, categoriesService, Category } from '@/services';
 
-const projectCategories = [
-  'Web Development',
-  'Mobile App',
-  'Logo Design',
-  'Graphic Design',
-  'Video Editing',
-  'Content Writing',
-  'SEO/Marketing',
-  'Audio Production',
-  'Animation',
-  'Other',
-];
-
-const budgetRanges = [
-  'Under $500',
-  '$500 - $1,000',
-  '$1,000 - $2,500',
-  '$2,500 - $5,000',
-  '$5,000+',
+const budgetRanges: { label: string; min: number; max: number }[] = [
+  { label: 'Under $500', min: 0, max: 500 },
+  { label: '$500 - $1,000', min: 500, max: 1000 },
+  { label: '$1,000 - $2,500', min: 1000, max: 2500 },
+  { label: '$2,500 - $5,000', min: 2500, max: 5000 },
+  { label: '$5,000+', min: 5000, max: 0 },
 ];
 
 export default function NewProject() {
   const navigate = useNavigate();
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [skills, setSkills] = useState('');
+  const [timeline, setTimeline] = useState('');
+  const [deliverables, setDeliverables] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [selectedBudget, setSelectedBudget] = useState('');
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isINSOpen, setIsINSOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    categoriesService.getCategoriesByModule('projects').then(setCategories).catch(() => {});
+  }, []);
+
+  const handleSubmit = async () => {
+    if (!title.trim() || !description.trim() || !selectedCategoryId) {
+      setSubmitError('Title, description, and category are required.');
+      return;
+    }
+    const budgetRange = budgetRanges.find((r) => r.label === selectedBudget);
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      await projectsService.createProject({
+        title,
+        description,
+        categoryId: selectedCategoryId,
+        budgetMin: budgetRange?.min,
+        budgetMax: budgetRange && budgetRange.max > 0 ? budgetRange.max : undefined,
+        requiredSkills: skills ? skills.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
+        estimatedDuration: timeline || undefined,
+        deliverables: deliverables
+          ? deliverables.split('\n').map((d) => d.trim()).filter(Boolean)
+          : undefined,
+      });
+      navigate('/my-requests');
+    } catch (err: any) {
+      setSubmitError(err?.message || 'Failed to post project. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -52,42 +81,42 @@ export default function NewProject() {
         <div className="flex-1 overflow-y-auto px-6 py-6 pb-24 space-y-6">
           {/* Project Title */}
           <div className="space-y-2">
-            <Label htmlFor="title">Project Title</Label>
+            <Label htmlFor="title">Project Title *</Label>
             <Input
               id="title"
               placeholder="e.g., Design a logo for my startup"
               className="bg-white"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
             />
           </div>
 
           {/* Category */}
-          <div className="space-y-3">
-            <Label>Project Category</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {projectCategories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                    selectedCategory === category
-                      ? 'border-purple-500 bg-purple-50 text-purple-700'
-                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  {category}
-                </button>
+          <div className="space-y-2">
+            <Label htmlFor="category">Project Category *</Label>
+            <select
+              id="category"
+              className="w-full h-10 px-3 rounded-md border bg-white text-sm"
+              value={selectedCategoryId}
+              onChange={(e) => setSelectedCategoryId(e.target.value)}
+            >
+              <option value="">Select a category</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Project Description</Label>
+            <Label htmlFor="description">Project Description *</Label>
             <Textarea
               id="description"
               placeholder="Describe your project in detail, including goals, requirements, and deliverables..."
               rows={5}
               className="bg-white resize-none"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             />
           </div>
 
@@ -98,6 +127,8 @@ export default function NewProject() {
               id="skills"
               placeholder="e.g., Adobe Illustrator, Branding, Creative Design"
               className="bg-white"
+              value={skills}
+              onChange={(e) => setSkills(e.target.value)}
             />
             <p className="text-xs text-gray-500">Separate skills with commas</p>
           </div>
@@ -108,15 +139,15 @@ export default function NewProject() {
             <div className="grid grid-cols-2 gap-2">
               {budgetRanges.map((range) => (
                 <button
-                  key={range}
-                  onClick={() => setSelectedBudget(range)}
+                  key={range.label}
+                  onClick={() => setSelectedBudget(range.label)}
                   className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                    selectedBudget === range
+                    selectedBudget === range.label
                       ? 'border-purple-500 bg-purple-50 text-purple-700'
                       : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  {range}
+                  {range.label}
                 </button>
               ))}
             </div>
@@ -129,6 +160,8 @@ export default function NewProject() {
               id="timeline"
               placeholder="e.g., 2 weeks, 1 month"
               className="bg-white"
+              value={timeline}
+              onChange={(e) => setTimeline(e.target.value)}
             />
           </div>
 
@@ -137,34 +170,26 @@ export default function NewProject() {
             <Label htmlFor="deliverables">Expected Deliverables</Label>
             <Textarea
               id="deliverables"
-              placeholder="List what you expect to receive (e.g., 3 logo concepts, source files, revisions...)"
+              placeholder="List what you expect to receive (one per line)..."
               rows={3}
               className="bg-white resize-none"
-            />
-          </div>
-
-          {/* Additional Details */}
-          <div className="space-y-2">
-            <Label htmlFor="additional">Additional Details (optional)</Label>
-            <Textarea
-              id="additional"
-              placeholder="Any other information freelancers should know..."
-              rows={3}
-              className="bg-white resize-none"
+              value={deliverables}
+              onChange={(e) => setDeliverables(e.target.value)}
             />
           </div>
         </div>
 
         {/* Submit Button */}
         <div className="border-t bg-white p-4 space-y-2">
+          {submitError && <p className="text-sm text-red-600">{submitError}</p>}
           <Button
             className="w-full"
             size="lg"
-            onClick={() => {
-              navigate('/my-requests');
-            }}
+            onClick={handleSubmit}
+            disabled={isSubmitting}
           >
-            Post Project
+            {isSubmitting ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+            {isSubmitting ? 'Posting...' : 'Post Project'}
           </Button>
           <Button
             variant="outline"

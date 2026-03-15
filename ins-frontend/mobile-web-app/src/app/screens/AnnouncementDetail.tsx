@@ -1,78 +1,43 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ArrowLeft, Calendar, Bell } from 'lucide-react';
 import { Card, CardContent } from '@/app/components/ui/card';
-import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
-
-const mockAnnouncements: Record<string, {
-  id: string;
-  title: string;
-  body: string;
-  publishedDate: string;
-  expiresDate?: string;
-  ctaLabel?: string;
-  ctaLink?: string;
-  status: 'active' | 'expired' | 'scheduled';
-}> = {
-  '1': {
-    id: '1',
-    title: 'New Feature: Enhanced Search',
-    body: `We're excited to announce a major upgrade to our search functionality!
-
-**What's New:**
-• Advanced filtering options for all service categories
-• Location-based radius search with map view
-• Price range filters for better budget matching
-• Skill and experience level filters
-• Saved search preferences
-
-**How to Use:**
-Simply navigate to any Browse screen and look for the new filter icon in the top right corner. You can now narrow down results to find exactly what you're looking for.
-
-**Feedback:**
-We'd love to hear your thoughts on this update. Please share your feedback through the Help & Support section.
-
-Thank you for being part of I Need Someone!`,
-    publishedDate: '2026-02-08',
-    status: 'active',
-    ctaLabel: 'Try New Search',
-    ctaLink: '/jobs/candidate/browse',
-  },
-  '7': {
-    id: '7',
-    title: 'Platform Maintenance Notice',
-    body: `**Scheduled Maintenance Window**
-
-To improve platform performance and security, we will be performing scheduled maintenance on:
-
-**Date:** February 15, 2026
-**Time:** 2:00 AM - 4:00 AM PST
-**Expected Duration:** 2 hours
-
-**What to Expect:**
-• The platform will be temporarily unavailable during this window
-• All active sessions will be logged out
-• No data will be lost
-• Service will be fully restored by 4:00 AM PST
-
-**Preparations:**
-• Save any work in progress before 2:00 AM PST
-• Plan critical communications outside this window
-• Check back after 4:00 AM PST to resume normal operations
-
-We apologize for any inconvenience and appreciate your understanding.`,
-    publishedDate: '2026-02-07',
-    expiresDate: '2026-02-15',
-    status: 'active',
-  },
-};
+import { notificationsService, Announcement } from '@/services';
 
 export default function AnnouncementDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const announcement = id ? mockAnnouncements[id] : null;
+  const [announcement, setAnnouncement] = useState<Announcement | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!announcement) {
+  useEffect(() => {
+    if (!id) return;
+    notificationsService
+      .getAnnouncement(id)
+      .then(setAnnouncement)
+      .catch(() => setError('Failed to load announcement.'))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full bg-gray-50">
+        <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
+          <button onClick={() => navigate('/notifications')} className="p-2 -ml-2 hover:bg-gray-100 rounded-lg">
+            <ArrowLeft className="size-5" />
+          </button>
+          <h1 className="font-semibold">Announcement</h1>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !announcement) {
     return (
       <div className="flex flex-col h-full bg-gray-50">
         <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
@@ -85,11 +50,15 @@ export default function AnnouncementDetail() {
           <h1 className="font-semibold">Announcement</h1>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-gray-600">Announcement not found</p>
+          <p className="text-gray-600">{error ?? 'Announcement not found'}</p>
         </div>
       </div>
     );
   }
+
+  const isExpired = announcement.expiresAt && new Date(announcement.expiresAt) < new Date();
+  const statusLabel = isExpired ? 'Expired' : 'Active';
+
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
@@ -113,9 +82,8 @@ export default function AnnouncementDetail() {
               <div className="p-3 rounded-xl bg-blue-50 text-blue-600">
                 <Bell className="size-6" />
               </div>
-              <Badge variant={announcement.status === 'expired' ? 'secondary' : 'default'}>
-                {announcement.status === 'active' ? 'Active' : 
-                 announcement.status === 'expired' ? 'Expired' : 'Scheduled'}
+              <Badge variant={isExpired ? 'secondary' : 'default'}>
+                {statusLabel}
               </Badge>
             </div>
 
@@ -127,12 +95,12 @@ export default function AnnouncementDetail() {
               <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                 <div className="flex items-center gap-1.5">
                   <Calendar className="size-4" />
-                  <span>Published: {announcement.publishedDate}</span>
+                  <span>Published: {new Date(announcement.publishedAt).toLocaleDateString()}</span>
                 </div>
-                {announcement.expiresDate && (
+                {announcement.expiresAt && (
                   <div className="flex items-center gap-1.5">
                     <Calendar className="size-4" />
-                    <span>Expires: {announcement.expiresDate}</span>
+                    <span>Expires: {new Date(announcement.expiresAt).toLocaleDateString()}</span>
                   </div>
                 )}
               </div>
@@ -140,7 +108,7 @@ export default function AnnouncementDetail() {
 
             {/* Body */}
             <div className="prose prose-sm max-w-none">
-              {announcement.body.split('\n').map((paragraph, index) => {
+              {announcement.content.split('\n').map((paragraph, index) => {
                 if (paragraph.startsWith('**') && paragraph.endsWith('**')) {
                   return (
                     <h3 key={index} className="font-semibold mt-4 mb-2">
@@ -163,19 +131,10 @@ export default function AnnouncementDetail() {
                 return null;
               })}
             </div>
-
-            {/* CTA Button */}
-            {announcement.ctaLabel && announcement.ctaLink && (
-              <Button 
-                className="w-full min-h-[44px]"
-                onClick={() => navigate(announcement.ctaLink!)}
-              >
-                {announcement.ctaLabel}
-              </Button>
-            )}
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
+

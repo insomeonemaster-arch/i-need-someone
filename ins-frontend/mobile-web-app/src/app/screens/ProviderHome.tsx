@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Wrench, Briefcase, Rocket, Bell } from 'lucide-react';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { INSIntakeModal } from '@/app/components/ins/INSIntakeModal';
+import { notificationsService } from '@/services';
 
 export default function ProviderHome() {
   const navigate = useNavigate();
@@ -10,6 +11,11 @@ export default function ProviderHome() {
     isOpen: boolean;
     category: 'local-services' | 'jobs' | 'projects';
   } | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    notificationsService.getUnreadCount().then(setUnreadCount).catch(() => {});
+  }, []);
 
   const cards = [
     {
@@ -50,7 +56,9 @@ export default function ProviderHome() {
             >
               <Bell className="size-6" />
               {/* Notification badge */}
-              <span className="absolute top-1.5 right-1.5 size-2 bg-red-600 rounded-full"></span>
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 size-2 bg-red-600 rounded-full"></span>
+              )}
             </button>
           </div>
           <p className="text-gray-600 text-sm md:text-base">Choose how you want to work</p>

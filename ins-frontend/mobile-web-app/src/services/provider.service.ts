@@ -70,6 +70,8 @@ export interface UpdateProfileRequest {
   title?: string;
   bio?: string;
   hourlyRate?: number;
+  serviceRadius?: number;
+  acceptsRemoteWork?: boolean;
   location?: {
     city: string;
     state: string;

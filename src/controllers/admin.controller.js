@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const { success, paginated, error, getPagination, buildPaginationMeta } = require('../utils/response');
+const { logAdminAction } = require('../utils/auditLog');
 
 const prisma = new PrismaClient();
 
@@ -144,6 +145,15 @@ const resolveDispute = async (req, res, next) => {
         resolvedAt: new Date(),
       },
     });
+    await logAdminAction({
+      userId: req.user.id,
+      action: 'dispute.resolved',
+      resourceType: 'Dispute',
+      resourceId: req.params.id,
+      changes: { resolutionAction, refundAmount: refundAmount || null },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
     return success(res, updated);
   } catch (err) {
     next(err);
@@ -189,6 +199,16 @@ const approveDocument = async (req, res, next) => {
       });
     }
 
+    await logAdminAction({
+      userId: req.user.id,
+      action: 'document.approved',
+      resourceType: 'VerificationDocument',
+      resourceId: req.params.id,
+      changes: { verificationStatus: { from: 'pending', to: 'verified' }, documentUserId: updated.userId },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     return success(res, updated);
   } catch (err) {
     next(err);
@@ -210,6 +230,16 @@ const rejectDocument = async (req, res, next) => {
       where: { userId: updated.userId },
       update: { verificationStatus: 'rejected' },
       create: { userId: updated.userId, verificationStatus: 'rejected' },
+    });
+
+    await logAdminAction({
+      userId: req.user.id,
+      action: 'document.rejected',
+      resourceType: 'VerificationDocument',
+      resourceId: req.params.id,
+      changes: { verificationStatus: { from: 'pending', to: 'rejected' }, reason: req.body.reason, documentUserId: updated.userId },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
     });
 
     return success(res, updated);

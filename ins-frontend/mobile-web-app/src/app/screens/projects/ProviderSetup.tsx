@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, CheckCircle, MessageCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, MessageCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Label } from '@/app/components/ui/label';
 import { INSIntakeModal } from '@/app/components/ins/INSIntakeModal';
+import { providerService } from '@/services';
 
 const skillCategories = [
   'Web Development',
@@ -27,6 +28,11 @@ export default function ProjectProviderSetup() {
   const navigate = useNavigate();
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [isINSOpen, setIsINSOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [bio, setBio] = useState('');
+  const [rate, setRate] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const toggleSkill = (skill: string) => {
     setSelectedSkills((prev) =>
@@ -59,6 +65,8 @@ export default function ProjectProviderSetup() {
               id="title"
               placeholder="e.g., Senior Web Developer"
               className="bg-white"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
             />
           </div>
 
@@ -93,6 +101,8 @@ export default function ProjectProviderSetup() {
               placeholder="Tell clients about your experience, expertise, and what makes you unique..."
               rows={5}
               className="bg-white resize-none"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
             />
           </div>
 
@@ -117,6 +127,8 @@ export default function ProjectProviderSetup() {
                 type="number"
                 placeholder="0"
                 className="bg-white pl-7"
+                value={rate}
+                onChange={(e) => setRate(e.target.value)}
               />
             </div>
             <p className="text-xs text-gray-500">This is your standard hourly rate. You can adjust pricing for each project.</p>
@@ -183,14 +195,34 @@ export default function ProjectProviderSetup() {
 
         {/* Submit Button */}
         <div className="border-t bg-white p-4 space-y-2">
+          {submitError && <p className="text-sm text-red-600">{submitError}</p>}
           <Button
             className="w-full"
             size="lg"
-            onClick={() => {
-              navigate('/');
+            disabled={isSubmitting}
+            onClick={async () => {
+              if (!title.trim()) {
+                setSubmitError('Professional title is required.');
+                return;
+              }
+              setIsSubmitting(true);
+              setSubmitError(null);
+              try {
+                await providerService.createProfile({
+                  title,
+                  bio,
+                  hourlyRate: parseFloat(rate) || 0,
+                });
+                navigate('/');
+              } catch (err: any) {
+                setSubmitError(err?.message || 'Failed to create profile. Please try again.');
+              } finally {
+                setIsSubmitting(false);
+              }
             }}
           >
-            Start Freelancing
+            {isSubmitting ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+            {isSubmitting ? 'Saving...' : 'Start Freelancing'}
           </Button>
           <Button
             variant="outline"

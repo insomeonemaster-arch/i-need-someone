@@ -4,6 +4,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { authService, User } from '@/services';
+import { socketService } from '@/services/socket.service';
 import { STORAGE_KEYS } from '@/services/config';
 
 interface AuthContextType {
@@ -44,6 +45,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     loadUser();
   }, []);
+
+  // Connect / disconnect socket based on auth state
+  useEffect(() => {
+    if (user && !isLoading) {
+      socketService.connect().catch(() => {
+        // Socket connection is best-effort — don't block the UI
+      });
+    } else if (!user && !isLoading) {
+      socketService.disconnect();
+    }
+  }, [user, isLoading]);
 
   // Monitor localStorage changes for token expiration/logout from other tabs
   useEffect(() => {

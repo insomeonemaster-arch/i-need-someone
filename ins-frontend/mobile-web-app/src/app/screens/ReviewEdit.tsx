@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
-import { ArrowLeft, Edit2, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Edit2, MessageCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -8,6 +8,7 @@ import { Textarea } from '@/app/components/ui/textarea';
 import { Label } from '@/app/components/ui/label';
 import { Badge } from '@/app/components/ui/badge';
 import { INSIntakeModal } from '@/app/components/ins/INSIntakeModal';
+import { providerService } from '@/services';
 
 export default function ReviewEdit() {
   const navigate = useNavigate();
@@ -16,6 +17,8 @@ export default function ReviewEdit() {
 
   const [formData, setFormData] = useState<any>(collectedData || {});
   const [isINSOpen, setIsINSOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Always call useEffect at the top level - never conditionally
   useEffect(() => {
@@ -29,15 +32,41 @@ export default function ReviewEdit() {
     return null;
   }
 
-  const handleSubmit = () => {
-    // Simulate submission
-    console.log('Submitting:', formData);
-    
-    // Navigate based on mode
-    if (mode === 'client') {
-      navigate('/my-requests');
-    } else {
-      navigate('/');
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      if (mode === 'provider') {
+        // Extract profile fields from INS-collected data using common key names as fallbacks
+        const title =
+          formData.title ||
+          formData.businessName ||
+          formData.professionalTitle ||
+          (Object.values(formData).find(
+            (v) => typeof v === 'string' && (v as string).length > 0 && (v as string).length < 100,
+          ) as string) ||
+          '';
+        const bio =
+          formData.bio ||
+          formData.about ||
+          formData.description ||
+          (Object.values(formData).find(
+            (v) => typeof v === 'string' && (v as string).length >= 100,
+          ) as string) ||
+          '';
+        const rateStr =
+          formData.hourlyRate || formData.rate || formData.price || '';
+        const hourlyRate = parseFloat(String(rateStr)) || 0;
+        await providerService.createProfile({ title, bio, hourlyRate });
+        navigate('/');
+      } else {
+        // Client mode: entity already created by INS, just navigate
+        navigate('/my-requests');
+      }
+    } catch (err: any) {
+      setSubmitError(err?.message || 'Failed to submit. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -188,8 +217,12 @@ export default function ReviewEdit() {
 
         {/* Action Buttons */}
         <div className="border-t bg-white p-4 space-y-2">
-          <Button className="w-full min-h-[44px] md:min-h-[48px]" size="lg" onClick={handleSubmit}>
-            Submit
+          {submitError && (
+            <p className="text-sm text-red-600 text-center">{submitError}</p>
+          )}
+          <Button className="w-full min-h-[44px] md:min-h-[48px]" size="lg" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+            {isSubmitting ? 'Submitting...' : 'Submit'}
           </Button>
           <Button
             variant="outline"

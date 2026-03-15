@@ -1,9 +1,8 @@
 const stripe = require('../lib/stripe');
-const { PrismaClient } = require('@prisma/client');
 const { success, paginated, error, getPagination, buildPaginationMeta } = require('../utils/response');
 const { payoutQueue, notifyQueue } = require('../lib/queues');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 const getPaymentMethods = async (req, res, next) => {
   try {

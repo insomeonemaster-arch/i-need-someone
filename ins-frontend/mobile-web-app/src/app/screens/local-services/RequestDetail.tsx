@@ -6,10 +6,14 @@ import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { Separator } from '@/app/components/ui/separator';
 import { localServicesService, ServiceRequest } from '@/services';
+import { useAuth } from '@/context/AuthContext';
+import { useAppMode } from '@/app/context/AppModeContext';
 
 export default function LocalServiceRequestDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const { mode } = useAppMode();
   const [request, setRequest] = useState<ServiceRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +45,7 @@ export default function LocalServiceRequestDetail() {
     return (
       <div className="flex flex-col h-full bg-gray-50">
         <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
-          <button onClick={() => navigate('/my-requests')} className="p-2 -ml-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-lg">
             <ArrowLeft className="size-5" />
           </button>
           <h1 className="font-semibold">Request Details</h1>
@@ -57,7 +61,7 @@ export default function LocalServiceRequestDetail() {
     return (
       <div className="flex flex-col h-full bg-gray-50">
         <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
-          <button onClick={() => navigate('/my-requests')} className="p-2 -ml-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-lg">
             <ArrowLeft className="size-5" />
           </button>
           <h1 className="font-semibold">Request Details</h1>
@@ -87,7 +91,7 @@ export default function LocalServiceRequestDetail() {
     <div className="flex flex-col h-full bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate('/my-requests')} className="p-2 -ml-2 hover:bg-gray-100 rounded-lg">
+        <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft className="size-5" />
         </button>
         <div className="flex-1">
@@ -129,9 +133,19 @@ export default function LocalServiceRequestDetail() {
 
       {/* Action Buttons */}
       <div className="border-t bg-white p-4 space-y-2">
-        <Button className="w-full" size="lg" onClick={() => navigate('/messages')}>
-          Message Provider
-        </Button>
+        {mode === 'provider' ? (
+          // Provider viewing — message the client
+          <Button className="w-full" size="lg"
+            onClick={() => navigate(`/chat/new?recipientId=${request.clientId}&contextType=service-request&contextId=${id}`)}>
+            Message Client
+          </Button>
+        ) : request.assignedProvider?.user?.id ? (
+          // Client viewing and provider is assigned — message them
+          <Button className="w-full" size="lg"
+            onClick={() => navigate(`/chat/new?recipientId=${request.assignedProvider!.user!.id}&contextType=service-request&contextId=${id}`)}>
+            Message Provider
+          </Button>
+        ) : null}
         {canCancel && (
           <Button
             variant="outline"

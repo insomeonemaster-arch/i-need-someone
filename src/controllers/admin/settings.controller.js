@@ -1,8 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
 const { success, error } = require('../../utils/response');
 const { logAdminAction } = require('../../utils/auditLog');
 
-const prisma = new PrismaClient();
+const prisma = require('../../lib/prisma');
 
 // Default values are used when no DB row exists for a key.
 const DEFAULTS = {

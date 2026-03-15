@@ -16,6 +16,7 @@ import ReviewEdit from './screens/ReviewEdit';
 import NewLocalServiceRequest from './screens/local-services/NewRequest';
 import LocalServiceProviderSetup from './screens/local-services/ProviderSetup';
 import LocalServiceRequestDetail from './screens/local-services/RequestDetail';
+import BrowseServiceRequests from './screens/local-services/BrowseServiceRequests';
 
 // Jobs
 import PostJob from './screens/jobs/PostJob';
@@ -44,6 +45,7 @@ import SupportTicketDetail from './screens/support/SupportTicketDetail';
 
 // Chat
 import ChatThread from './screens/ChatThread';
+import StartChat from './screens/StartChat';
 
 // Report
 import ReportFlow from './screens/ReportFlow';
@@ -141,6 +143,10 @@ export const router = createBrowserRouter([
       },
       // Chat
       {
+        path: 'chat/new',
+        element: <StartChat />,
+      },
+      {
         path: 'chat/:id',
         element: <ChatThread />,
       },
@@ -206,6 +212,10 @@ export const router = createBrowserRouter([
       {
         path: 'local-services/provider/setup',
         element: <LocalServiceProviderSetup />,
+      },
+      {
+        path: 'local-services/requests/browse',
+        element: <BrowseServiceRequests />,
       },
       {
         path: 'local-services/detail/:id',

@@ -1,7 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
 const { success, error } = require('../utils/response');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 const getMyProfile = async (req, res, next) => {
   try {
@@ -32,7 +31,8 @@ const createProfile = async (req, res, next) => {
       data: {
         userId: req.user.id,
         title: title || null,
-        tagline: tagline || null,
+        // Accept bio or tagline — frontend sends bio, DB stores as tagline
+        tagline: bio || tagline || null,
         hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
       },
     });
@@ -59,7 +59,8 @@ const updateProfile = async (req, res, next) => {
       where: { userId: req.user.id },
       data: {
         ...(title !== undefined && { title }),
-        ...(tagline !== undefined && { tagline }),
+        // Accept bio or tagline — frontend sends bio, DB stores as tagline
+        ...((bio !== undefined || tagline !== undefined) && { tagline: bio ?? tagline }),
         ...(hourlyRate !== undefined && { hourlyRate: parseFloat(hourlyRate) }),
         ...(serviceRadius !== undefined && { serviceRadius: parseInt(serviceRadius) }),
         ...(acceptsRemoteWork !== undefined && { acceptsRemoteWork }),
@@ -215,14 +216,43 @@ const getPublicProfile = async (req, res, next) => {
     const profile = await prisma.providerProfile.findUnique({
       where: { id: req.params.id },
       include: {
-        user: { select: { id: true, firstName: true, lastName: true, displayName: true, avatarUrl: true, createdAt: true } },
+        user: { select: { id: true, firstName: true, lastName: true, displayName: true, avatarUrl: true, city: true, state: true, createdAt: true } },
         skills: { include: { skill: true } },
         certifications: true,
         portfolio: true,
       },
     });
     if (!profile) return error(res, 'Provider not found', 404, 'NOT_FOUND');
-    return success(res, profile);
+
+    // Normalize to ProviderPublicProfile shape expected by the frontend
+    const normalized = {
+      id: profile.id,
+      userId: profile.user.id,
+      displayName: profile.user.displayName || `${profile.user.firstName} ${profile.user.lastName}`.trim(),
+      avatarUrl: profile.user.avatarUrl || null,
+      title: profile.title || '',
+      bio: profile.tagline || '',
+      hourlyRate: profile.hourlyRate ? parseFloat(profile.hourlyRate) : null,
+      location: (profile.user.city || profile.user.state)
+        ? { city: profile.user.city || '', state: profile.user.state || '', country: 'US' }
+        : null,
+      skills: profile.skills.map(s => s.skill.name),
+      ratings: parseFloat(profile.averageRating) || 0,
+      reviewsCount: profile.totalReviews || 0,
+      completedJobs: profile.totalJobsCompleted || 0,
+      portfolio: profile.portfolio.map(p => ({
+        id: p.id,
+        title: p.title,
+        description: p.description || '',
+        images: p.mediaUrls || [],
+      })),
+      certifications: profile.certifications,
+      verificationStatus: profile.verificationStatus,
+      isAvailable: profile.isAvailable,
+      memberSince: profile.user.createdAt,
+    };
+
+    return success(res, normalized);
   } catch (err) {
     next(err);
   }

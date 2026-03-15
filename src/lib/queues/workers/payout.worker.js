@@ -1,8 +1,7 @@
 const { payoutQueue } = require('../index');
 const stripe = require('../../stripe');
-const { PrismaClient } = require('@prisma/client');
 
-const prisma = new PrismaClient();
+const prisma = require('../../prisma');
 
 payoutQueue.process('process', async (job) => {
   const { payoutId } = job.data;

@@ -126,7 +126,9 @@ export default function Messages() {
       ) : (
         <div className="flex-1 pb-24 overflow-y-auto">
           {conversations.map((conversation, index) => {
-            const otherParticipant = conversation.participants?.find((p) => p.id !== user?.id);
+            const otherParticipant =
+              conversation.participants?.find((p) => p.id !== user?.id) ??
+              conversation.participants?.[0];
             const displayName = otherParticipant?.displayName || 'Unknown';
             const avatarUrl = otherParticipant?.avatarUrl;
 
@@ -153,7 +155,7 @@ export default function Messages() {
                           <div className="min-w-0">
                             <h3 className="font-medium leading-tight truncate">{displayName}</h3>
                             <p className="text-xs text-gray-500">
-                              {conversation.lastMessage?.type === 'text'
+                              {conversation.lastMessage?.messageType === 'text' || !conversation.lastMessage?.messageType
                                 ? conversation.lastMessage?.content?.slice(0, 50)
                                 : 'Sent an attachment'}
                             </p>

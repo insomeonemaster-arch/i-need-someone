@@ -1,4 +1,3 @@
-const { PrismaClient } = require('@prisma/client');
 const { z } = require('zod');
 const crypto = require('crypto');
 const { hash, compare } = require('../utils/password');
@@ -6,7 +5,7 @@ const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = requir
 const { success, error } = require('../utils/response');
 const { emailQueue } = require('../lib/queues');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 const registerSchema = z.object({
   email: z.string().email(),

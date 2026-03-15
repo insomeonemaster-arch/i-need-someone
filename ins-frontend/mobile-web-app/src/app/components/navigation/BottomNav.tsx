@@ -1,7 +1,7 @@
 import { useAppMode } from '@/app/context/AppModeContext';
 import { useINS } from '@/app/context/INSContext';
 import { useLocation, useNavigate } from 'react-router';
-import { Home, FileText, MessageCircle, User, Briefcase, DollarSign } from 'lucide-react';
+import { Home, FileText, MessageCircle, User, Briefcase } from 'lucide-react';
 import { Badge } from '@/app/components/ui/badge';
 
 export function BottomNav() {
@@ -22,7 +22,7 @@ export function BottomNav() {
     { icon: Home, label: 'Home', path: '/', active: location.pathname === '/' },
     { icon: Briefcase, label: 'My Jobs', path: '/my-jobs', active: location.pathname.startsWith('/my-jobs') },
     { icon: null, label: 'INS', path: '', isCenter: true, active: false },
-    { icon: DollarSign, label: 'Earnings', path: '/earnings', active: location.pathname.startsWith('/earnings') },
+    { icon: MessageCircle, label: 'Messages', path: '/messages', active: location.pathname.startsWith('/messages') || location.pathname.startsWith('/chat'), badge: true },
     { icon: User, label: 'Profile', path: '/profile', active: location.pathname.startsWith('/profile') },
   ];
 

@@ -8,13 +8,15 @@ const errorHandler = (err, req, res, next) => {
       meta: { timestamp: new Date().toISOString() },
     });
   }
-  console.error(err);
 
+  // Handle Zod validation errors before logging — these are user input errors, not server bugs
   if (err.name === 'ZodError') {
     return error(res, 'Validation error', 422, 'VALIDATION_ERROR',
       err.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
     );
   }
+
+  console.error(err);
 
   if (err.code === 'P2002') {
     return error(res, 'Resource already exists', 409, 'CONFLICT');

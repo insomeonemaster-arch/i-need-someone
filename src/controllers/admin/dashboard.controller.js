@@ -1,7 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
 const { success, error } = require('../../utils/response');
 
-const prisma = new PrismaClient();
+const prisma = require('../../lib/prisma');
 
 /**
  * GET /api/admin/dashboard/stats

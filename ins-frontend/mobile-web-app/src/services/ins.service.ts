@@ -58,6 +58,11 @@ class InsService {
     const response = await apiClient.get<InsMessage[]>(`/ins/conversations/${conversationId}/messages`);
     return Array.isArray(response) ? response : [];
   }
+
+  async getConversations(): Promise<InsConversation[]> {
+    const response = await apiClient.get<InsConversation[]>('/ins/conversations');
+    return Array.isArray(response) ? response : [];
+  }
 }
 
 export const insService = new InsService();

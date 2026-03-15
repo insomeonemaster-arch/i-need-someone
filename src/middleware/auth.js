@@ -1,8 +1,7 @@
 const { verifyAccessToken } = require('../utils/jwt');
 const { error } = require('../utils/response');
-const { PrismaClient } = require('@prisma/client');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 const authenticate = async (req, res, next) => {
   try {

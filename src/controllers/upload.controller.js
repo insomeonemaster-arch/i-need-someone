@@ -64,8 +64,7 @@ const uploadAvatar = async (req, res, next) => {
     const url = await uploadToSupabase(processed, path, 'image/webp');
 
     // Update user avatar
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
+        const prisma = require('../lib/prisma');
     await prisma.user.update({ where: { id: req.user.id }, data: { avatarUrl: url } });
 
     return success(res, { url });

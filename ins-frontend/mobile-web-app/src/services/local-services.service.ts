@@ -11,6 +11,11 @@ export interface ServiceRequest {
   category: string;
   status: 'open' | 'quoted' | 'accepted' | 'in-progress' | 'completed' | 'cancelled';
   clientId: string;
+  client?: { id: string; firstName?: string; lastName?: string; avatarUrl?: string };
+  assignedProvider?: {
+    id: string;
+    user?: { id: string; firstName?: string; lastName?: string; avatarUrl?: string };
+  };
   budget?: {
     min: number;
     max: number;
@@ -137,6 +142,16 @@ class LocalServicesService {
 
   async rejectQuote(quoteId: string): Promise<Quote> {
     return apiClient.post(`/local-services/quotes/${quoteId}/reject`, {});
+  }
+
+  // For providers: browse open service requests posted by clients
+  async browseOpenRequests(filters?: { categoryId?: string; q?: string; limit?: number }): Promise<ServiceRequest[]> {
+    const params = new URLSearchParams();
+    if (filters?.categoryId) params.append('categoryId', filters.categoryId);
+    if (filters?.q) params.append('q', filters.q);
+    if (filters?.limit) params.append('perPage', String(filters.limit));
+    const response = await apiClient.get<ServiceRequest[]>(`/local-services/requests/browse?${params.toString()}`);
+    return Array.isArray(response) ? response.map(normalizeServiceRequest) : [];
   }
 }
 

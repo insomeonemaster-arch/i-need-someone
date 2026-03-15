@@ -137,7 +137,7 @@ export default function ProviderProfileLocal() {
               <Button className="flex-1 min-h-[44px]" onClick={() => navigate('/local-services/new')}>
                 Request Service
               </Button>
-              <Button variant="outline" size="icon" className="min-w-[44px] min-h-[44px]" onClick={() => navigate('/chat/' + provider.userId)}>
+              <Button variant="outline" size="icon" className="min-w-[44px] min-h-[44px]" onClick={() => navigate('/chat/new?recipientId=' + provider.userId)}>
                 <MessageSquare className="size-5" />
               </Button>
             </div>

@@ -1,9 +1,8 @@
 const { imageQueue } = require('../index');
 const sharp = require('sharp');
 const supabase = require('../../supabase');
-const { PrismaClient } = require('@prisma/client');
 
-const prisma = new PrismaClient();
+const prisma = require('../../prisma');
 const BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'ins-platform';
 
 const SIZES = {

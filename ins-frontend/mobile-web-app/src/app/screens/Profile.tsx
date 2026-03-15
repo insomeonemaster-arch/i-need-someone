@@ -6,7 +6,7 @@ import { providerService } from '@/services';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Switch } from '@/app/components/ui/switch';
 import { Button } from '@/app/components/ui/button';
-import { User, Settings, HelpCircle, LogOut, Repeat, ChevronRight, Shield, Loader2, AlertCircle, Briefcase } from 'lucide-react';
+import { User, Settings, HelpCircle, LogOut, Repeat, ChevronRight, Shield, Loader2, AlertCircle, Briefcase, DollarSign } from 'lucide-react';
 
 export default function Profile() {
   const { mode, setMode } = useAppMode();
@@ -64,6 +64,14 @@ export default function Profile() {
       route: '/profile/settings',
       icon: Settings,
       color: 'bg-gray-50 text-gray-600',
+    },
+    {
+      title: 'Earnings',
+      subtitle: 'View your earnings and payouts',
+      route: '/earnings',
+      icon: DollarSign,
+      color: 'bg-green-50 text-green-600',
+      showForProvider: true,
     },
     {
       title: 'Verification Status',

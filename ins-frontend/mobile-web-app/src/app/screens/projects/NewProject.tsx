@@ -39,6 +39,14 @@ export default function NewProject() {
       setSubmitError('Title, description, and category are required.');
       return;
     }
+    if (title.trim().length < 5) {
+      setSubmitError('Title must be at least 5 characters.');
+      return;
+    }
+    if (description.trim().length < 10) {
+      setSubmitError('Description must be at least 10 characters.');
+      return;
+    }
     const budgetRange = budgetRanges.find((r) => r.label === selectedBudget);
     setIsSubmitting(true);
     setSubmitError(null);

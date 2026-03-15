@@ -1,7 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
 const { success, paginated, getPagination, buildPaginationMeta, error } = require('../../utils/response');
 
-const prisma = new PrismaClient();
+const prisma = require('../../lib/prisma');
 
 // GET /admin/roles
 async function getRoles(req, res) {

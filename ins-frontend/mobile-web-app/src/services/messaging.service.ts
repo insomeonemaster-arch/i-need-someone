@@ -91,20 +91,26 @@ class MessagingService {
     return normalizeConversation(raw);
   }
 
-  async createConversation(participantIds: string[]): Promise<Conversation> {
-    // Backend expects recipientId (string), not participantIds (array)
-    const raw = await apiClient.post<any>('/conversations', { recipientId: participantIds[0] });
+  async createConversation(
+    recipientId: string,
+    context?: { contextType?: string; contextId?: string },
+  ): Promise<Conversation> {
+    const raw = await apiClient.post<any>('/conversations', {
+      recipientId,
+      contextType: context?.contextType,
+      contextId: context?.contextId,
+    });
     return normalizeConversation(raw);
   }
 
   async getMessages(
     conversationId: string,
-    limit = 50,
-    offset = 0,
+    page = 1,
+    perPage = 10,
   ): Promise<Message[]> {
     // paginated — api-client unwraps .data to array directly
     const response = await apiClient.get<Message[]>(
-      `/conversations/${conversationId}/messages?perPage=${limit}`,
+      `/conversations/${conversationId}/messages?page=${page}&perPage=${perPage}`,
     );
     return Array.isArray(response) ? response : [];
   }

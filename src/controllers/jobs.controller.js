@@ -1,9 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
 const { z } = require('zod');
 const { success, paginated, error, getPagination, buildPaginationMeta } = require('../utils/response');
 const { notifyQueue } = require('../lib/queues');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 const createJobSchema = z.object({
   title: z.string().min(5),
@@ -208,15 +207,19 @@ const updateApplicationStatus = async (req, res, next) => {
 const browseJobs = async (req, res, next) => {
   try {
     const { page, perPage, skip } = getPagination(req.query);
-    const { categoryId, employmentType, workLocation, minSalary, maxSalary, keyword } = req.query;
+    const { categoryId, category, employmentType, workLocation, minSalary, maxSalary, keyword, q } = req.query;
 
     const where = { status: 'open' };
-    if (categoryId) where.categoryId = categoryId;
+    // Accept both 'categoryId' and 'category' param names
+    const catId = categoryId || category;
+    if (catId) where.categoryId = catId;
     if (employmentType) where.employmentType = employmentType;
     if (workLocation) where.workLocation = workLocation;
-    if (keyword) where.OR = [
-      { title: { contains: keyword, mode: 'insensitive' } },
-      { description: { contains: keyword, mode: 'insensitive' } },
+    // Accept both 'keyword' and 'q' param names
+    const searchTerm = keyword || q;
+    if (searchTerm) where.OR = [
+      { title: { contains: searchTerm, mode: 'insensitive' } },
+      { description: { contains: searchTerm, mode: 'insensitive' } },
     ];
 
     const [jobs, total] = await Promise.all([

@@ -1,7 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
 const { error } = require('../utils/response');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 /**
  * Middleware to check if user has admin access

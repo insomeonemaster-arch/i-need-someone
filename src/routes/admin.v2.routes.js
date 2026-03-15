@@ -81,9 +81,8 @@ router.patch('/disputes/:id/resolve', requirePermission('disputes', 'resolve'), 
 // ─── COMMUNICATIONS (CHAT TRANSCRIPTS) ────────────────────────────────────────
 router.get('/communications', requirePermission('messages', 'read'), async (req, res) => {
   // Get all conversations
-  const { PrismaClient } = require('@prisma/client');
-  const { paginated, getPagination, buildPaginationMeta } = require('../../utils/response');
-  const prisma = new PrismaClient();
+    const { paginated, getPagination, buildPaginationMeta } = require('../../utils/response');
+  const prisma = require('../lib/prisma');
   
   try {
     const { page, perPage, skip } = getPagination(req.query);
@@ -133,9 +132,8 @@ router.get('/communications', requirePermission('messages', 'read'), async (req,
 });
 
 router.get('/communications/:threadId/messages', requirePermission('messages', 'read'), async (req, res) => {
-  const { PrismaClient } = require('@prisma/client');
-  const { paginated, getPagination, buildPaginationMeta } = require('../../utils/response');
-  const prisma = new PrismaClient();
+    const { paginated, getPagination, buildPaginationMeta } = require('../../utils/response');
+  const prisma = require('../lib/prisma');
   
   try {
     const { page, perPage, skip } = getPagination(req.query);
@@ -186,9 +184,8 @@ router.delete('/service-zones/:id', requirePermission('zones', 'delete'), catego
 
 // ─── AUDIT LOGS ───────────────────────────────────────────────────────────────
 router.get('/audit-logs', requirePermission('audit_logs', 'read'), async (req, res) => {
-  const { PrismaClient } = require('@prisma/client');
-  const { paginated, getPagination, buildPaginationMeta } = require('../../utils/response');
-  const prisma = new PrismaClient();
+    const { paginated, getPagination, buildPaginationMeta } = require('../../utils/response');
+  const prisma = require('../lib/prisma');
   
   try {
     const { page, perPage, skip } = getPagination(req.query);
@@ -231,9 +228,8 @@ router.get('/audit-logs', requirePermission('audit_logs', 'read'), async (req, r
 });
 
 router.get('/audit-logs/:id', requirePermission('audit_logs', 'read'), async (req, res) => {
-  const { PrismaClient } = require('@prisma/client');
-  const { success, error } = require('../../utils/response');
-  const prisma = new PrismaClient();
+    const { success, error } = require('../../utils/response');
+  const prisma = require('../lib/prisma');
   
   try {
     const log = await prisma.userActivityLog.findUnique({

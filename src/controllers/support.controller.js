@@ -1,7 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
 const { success, paginated, error, getPagination, buildPaginationMeta } = require('../utils/response');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 const getTickets = async (req, res, next) => {
   try {

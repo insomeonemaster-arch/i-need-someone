@@ -1,7 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
 const { success, paginated, getPagination, buildPaginationMeta } = require('../utils/response');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 const globalSearch = async (req, res, next) => {
   try {
@@ -12,9 +11,9 @@ const globalSearch = async (req, res, next) => {
 
     const [providers, jobs, projects] = await Promise.all([
       type && type !== 'providers' ? [] : prisma.providerProfile.findMany({
-        where: { verificationStatus: 'verified', OR: [{ title: keyword }, { tagline: keyword }] },
+        where: { OR: [{ title: keyword }, { tagline: keyword }] },
         take: 5,
-        include: { user: { select: { firstName: true, lastName: true, avatarUrl: true } } },
+        include: { user: { select: { id: true, firstName: true, lastName: true, displayName: true, avatarUrl: true, city: true, state: true } } },
       }),
       type && type !== 'jobs' ? [] : prisma.jobPosting.findMany({
         where: { status: 'open', OR: [{ title: keyword }, { description: keyword }] },
@@ -28,7 +27,9 @@ const globalSearch = async (req, res, next) => {
       }),
     ]);
 
-    return success(res, { providers, jobs, projects });
+    // Normalize providers to ProviderPublicProfile shape
+    const normalizedProviders = providers.map(p => normalizeProvider(p));
+    return success(res, { providers: normalizedProviders, jobs, projects });
   } catch (err) {
     next(err);
   }
@@ -39,7 +40,7 @@ const searchProviders = async (req, res, next) => {
     const { page, perPage, skip } = getPagination(req.query);
     const { q, categoryId, minRating, maxRate } = req.query;
 
-    const where = { verificationStatus: 'verified', isAvailable: true };
+    const where = {};
     if (q) where.OR = [{ title: { contains: q, mode: 'insensitive' } }, { tagline: { contains: q, mode: 'insensitive' } }];
     if (minRating) where.averageRating = { gte: parseFloat(minRating) };
     if (maxRate) where.hourlyRate = { lte: parseFloat(maxRate) };
@@ -48,11 +49,14 @@ const searchProviders = async (req, res, next) => {
       prisma.providerProfile.findMany({
         where, skip, take: perPage,
         orderBy: { averageRating: 'desc' },
-        include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, city: true } } },
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true, displayName: true, avatarUrl: true, city: true, state: true } },
+          skills: { include: { skill: true } },
+        },
       }),
       prisma.providerProfile.count({ where }),
     ]);
-    return paginated(res, providers, buildPaginationMeta(total, page, perPage));
+    return paginated(res, providers.map(p => normalizeProvider(p)), buildPaginationMeta(total, page, perPage));
   } catch (err) {
     next(err);
   }
@@ -183,6 +187,26 @@ const getFilters = async (req, res, next) => {
     next(err);
   }
 };
+
+// Normalize a raw ProviderProfile DB record to the ProviderPublicProfile frontend shape
+function normalizeProvider(p) {
+  return {
+    id: p.id,
+    userId: p.user.id,
+    displayName: p.user.displayName || `${p.user.firstName} ${p.user.lastName}`.trim(),
+    avatarUrl: p.user.avatarUrl || null,
+    title: p.title || '',
+    bio: p.tagline || '',
+    hourlyRate: p.hourlyRate ? parseFloat(p.hourlyRate) : null,
+    location: (p.user.city || p.user.state) ? { city: p.user.city || '', state: p.user.state || '', country: 'US' } : null,
+    skills: p.skills ? p.skills.map(s => s.skill.name) : [],
+    ratings: parseFloat(p.averageRating) || 0,
+    reviewsCount: p.totalReviews || 0,
+    completedJobs: p.totalJobsCompleted || 0,
+    verificationStatus: p.verificationStatus,
+    isAvailable: p.isAvailable,
+  };
+}
 
 module.exports = { globalSearch, searchProviders, searchJobs, searchProjects, autocomplete, getFilters, getCategories, getSkills };
 

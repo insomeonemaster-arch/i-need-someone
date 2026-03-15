@@ -1,8 +1,7 @@
 const { notifyQueue } = require('../index');
 const { emailQueue, smsQueue, pushQueue } = require('../index');
-const { PrismaClient } = require('@prisma/client');
 
-const prisma = new PrismaClient();
+const prisma = require('../../prisma');
 
 notifyQueue.process('send', async (job) => {
   const { userId, type, title, body, actionUrl, contextType, contextId } = job.data;

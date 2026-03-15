@@ -1,8 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
 const { success, paginated, error, getPagination, buildPaginationMeta } = require('../../utils/response');
 const { logAdminAction, AdminActions } = require('../../utils/auditLog');
 
-const prisma = new PrismaClient();
+const prisma = require('../../lib/prisma');
 
 /**
  * GET /api/admin/users

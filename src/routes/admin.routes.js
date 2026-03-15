@@ -83,11 +83,11 @@ router.get('/analytics/users', c.getUsersAnalytics);
 router.get('/analytics/transactions', c.getTransactionsAnalytics);
 router.get('/analytics/activity', c.getActivityAnalytics);
 
+const prisma = require('../lib/prisma');
+
 // ─── AUDIT LOGS ───────────────────────────────────────────────────────────────
 router.get('/audit-logs', async (req, res) => {
-  const { PrismaClient } = require('@prisma/client');
-  const { paginated, getPagination, buildPaginationMeta } = require('../utils/response');
-  const prisma = new PrismaClient();
+    const { paginated, getPagination, buildPaginationMeta } = require('../utils/response');
   
   try {
     const { page, perPage, skip } = getPagination(req.query);
@@ -130,14 +130,13 @@ router.get('/audit-logs', async (req, res) => {
 });
 
 // ─── INLINE PRISMA FOR ADDITIONAL ADMIN ROUTES ───────────────────────────────
-const { PrismaClient: InlinePrisma } = require('@prisma/client');
 const {
   paginated: inlinePaginated,
   getPagination: inlineGetPagination,
   buildPaginationMeta: inlineBuildMeta,
   success: inlineSuccess,
 } = require('../utils/response');
-const inlinePrisma = new InlinePrisma();
+const inlinePrisma = prisma;
 
 // ─── LOCAL REQUESTS (SERVICE REQUESTS) ───────────────────────────────────────
 router.get('/local-requests', async (req, res) => {

@@ -4,6 +4,7 @@ const c = require('../controllers/localServices.controller');
 
 // Browse (public-ish)
 router.get('/browse', authenticate, c.browse);
+router.get('/requests/browse', authenticate, c.browseOpenRequests);
 
 // Service Requests (client)
 router.get('/requests', authenticate, c.getRequests);

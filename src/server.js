@@ -44,8 +44,7 @@ io.on('connection', (socket) => {
 
     // Queue email notification for recipient
     const { notifyQueue } = require('./lib/queues');
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
+        const prisma = require('./lib/prisma');
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
       include: {

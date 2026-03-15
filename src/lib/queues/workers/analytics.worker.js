@@ -1,7 +1,6 @@
 const { analyticsQueue } = require('../index');
-const { PrismaClient } = require('@prisma/client');
 
-const prisma = new PrismaClient();
+const prisma = require('../../prisma');
 
 // Recalculate provider rating/stats after a review
 analyticsQueue.process('update-provider-stats', async (job) => {

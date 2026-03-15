@@ -1,9 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
 const { z } = require('zod');
 const { success, paginated, error, getPagination, buildPaginationMeta } = require('../utils/response');
 const { notifyQueue } = require('../lib/queues');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 const createProjectSchema = z.object({
   title: z.string().min(5),

@@ -1,8 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
 const openai = require('../lib/openai');
 const { success, paginated, error, getPagination, buildPaginationMeta } = require('../utils/response');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 const SYSTEM_PROMPT = `You are INS (I Need Someone), a helpful AI assistant for a services marketplace platform. 
 You help clients describe what they need (local services, jobs, projects) and guide them through posting requests.

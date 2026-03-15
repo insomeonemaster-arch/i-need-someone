@@ -1,7 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
 const { success, paginated, error, getPagination, buildPaginationMeta } = require('../utils/response');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 // Ensures consistent ordering so we don't get duplicate conversations
 const sortParticipants = (id1, id2) =>
@@ -53,7 +52,6 @@ const createConversation = async (req, res, next) => {
   try {
     const { recipientId, contextType, contextId } = req.body;
     if (!recipientId) return error(res, 'Recipient required', 400, 'VALIDATION_ERROR');
-    if (recipientId === req.user.id) return error(res, 'Cannot message yourself', 400, 'VALIDATION_ERROR');
 
     const [p1, p2] = sortParticipants(req.user.id, recipientId);
 

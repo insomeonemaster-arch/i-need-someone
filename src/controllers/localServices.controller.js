@@ -1,9 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
 const { z } = require('zod');
 const { success, paginated, error, getPagination, buildPaginationMeta } = require('../utils/response');
 const { notifyQueue } = require('../lib/queues');
 
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 const createRequestSchema = z.object({
   categoryId: z.string().uuid(),
@@ -81,7 +80,7 @@ const getRequest = async (req, res, next) => {
       include: {
         category: true,
         client: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-        assignedProvider: { include: { user: { select: { firstName: true, lastName: true, avatarUrl: true } } } },
+        assignedProvider: { include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
         quotes: { include: { provider: { include: { user: { select: { firstName: true, lastName: true, avatarUrl: true } } } } } },
       },
     });
@@ -243,17 +242,46 @@ const rejectQuote = async (req, res, next) => {
   }
 };
 
+// Browse open service requests — for providers to discover work available
+const browseOpenRequests = async (req, res, next) => {
+  try {
+    const { page, perPage, skip } = getPagination(req.query);
+    const { categoryId, q } = req.query;
+
+    const where = { status: 'open' };
+    if (categoryId) where.categoryId = categoryId;
+    if (q) where.OR = [
+      { title: { contains: q, mode: 'insensitive' } },
+      { description: { contains: q, mode: 'insensitive' } },
+    ];
+
+    const [requests, total] = await Promise.all([
+      prisma.serviceRequest.findMany({
+        where, skip, take: perPage,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          category: true,
+          client: { select: { id: true, firstName: true, lastName: true, displayName: true, avatarUrl: true, city: true } },
+        },
+      }),
+      prisma.serviceRequest.count({ where }),
+    ]);
+
+    return paginated(res, requests, buildPaginationMeta(total, page, perPage));
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ── Browse ────────────────────────────────────────────────────────────────────
 
 const browse = async (req, res, next) => {
   try {
     const { page, perPage, skip } = getPagination(req.query);
-    const { categoryId, lat, lng, radius = 50 } = req.query;
+    const { categoryId } = req.query;
 
-    const where = {
-      verificationStatus: 'verified',
-      isAvailable: true,
-    };
+    // No verification/availability gate — show all providers so new providers are discoverable
+    const where = {};
     if (categoryId) where.skills = { some: { skill: { categoryId } } };
 
     const [providers, total] = await Promise.all([
@@ -262,17 +290,36 @@ const browse = async (req, res, next) => {
         skip,
         take: perPage,
         include: {
-          user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, city: true, state: true } },
+          user: { select: { id: true, firstName: true, lastName: true, displayName: true, avatarUrl: true, city: true, state: true } },
+          skills: { include: { skill: true } },
         },
         orderBy: { averageRating: 'desc' },
       }),
       prisma.providerProfile.count({ where }),
     ]);
 
-    return paginated(res, providers, buildPaginationMeta(total, page, perPage));
+    // Normalize to ProviderPublicProfile shape expected by the frontend
+    const normalized = providers.map(p => ({
+      id: p.id,
+      userId: p.user.id,
+      displayName: p.user.displayName || `${p.user.firstName} ${p.user.lastName}`.trim(),
+      avatarUrl: p.user.avatarUrl || null,
+      title: p.title || '',
+      bio: p.tagline || '',
+      hourlyRate: p.hourlyRate ? parseFloat(p.hourlyRate) : null,
+      location: (p.user.city || p.user.state) ? { city: p.user.city || '', state: p.user.state || '', country: 'US' } : null,
+      skills: p.skills.map(s => s.skill.name),
+      ratings: parseFloat(p.averageRating) || 0,
+      reviewsCount: p.totalReviews || 0,
+      completedJobs: p.totalJobsCompleted || 0,
+      verificationStatus: p.verificationStatus,
+      isAvailable: p.isAvailable,
+    }));
+
+    return paginated(res, normalized, buildPaginationMeta(total, page, perPage));
   } catch (err) {
     next(err);
   }
 };
 
-module.exports = { getRequests, createRequest, getRequest, updateRequest, cancelRequest, getQuotes, createQuote, acceptQuote, rejectQuote, browse };
+module.exports = { getRequests, createRequest, getRequest, updateRequest, cancelRequest, getQuotes, createQuote, acceptQuote, rejectQuote, browse, browseOpenRequests };

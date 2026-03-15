@@ -24,7 +24,7 @@ export default function ProviderHome() {
       icon: Wrench,
       color: 'bg-blue-50 text-blue-600',
       category: 'local-services' as const,
-      manualRoute: '/local-services/provider/setup',
+      manualRoute: '/local-services/requests/browse',
     },
     {
       title: 'Jobs',
@@ -40,7 +40,7 @@ export default function ProviderHome() {
       icon: Rocket,
       color: 'bg-purple-50 text-purple-600',
       category: 'projects' as const,
-      manualRoute: '/projects/provider/setup',
+      manualRoute: '/browse/projects',
     },
   ];
 

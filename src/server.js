@@ -37,35 +37,40 @@ io.on('connection', (socket) => {
   });
 
   socket.on('message:send', async ({ conversationId, content, type = 'text' }) => {
-    io.to(`conversation:${conversationId}`).emit('message:new', {
-      conversationId, senderId: socket.userId, content, type,
-      createdAt: new Date().toISOString(),
-    });
-
-    // Queue email notification for recipient
-    const { notifyQueue } = require('./lib/queues');
-        const prisma = require('./lib/prisma');
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      include: {
-        participant1: { select: { id: true } },
-        participant2: { select: { id: true } },
-      },
-    });
-    if (conversation) {
-      const recipientId = conversation.participant1Id === socket.userId
-        ? conversation.participant2Id
-        : conversation.participant1Id;
-
-      await notifyQueue.add('send', {
-        userId: recipientId,
-        type: 'message',
-        title: 'New message',
-        body: content.substring(0, 100),
-        actionUrl: `/messages/${conversationId}`,
-        contextType: 'message',
-        contextId: conversationId,
+    try {
+      io.to(`conversation:${conversationId}`).emit('message:new', {
+        conversationId, senderId: socket.userId, content, type,
+        createdAt: new Date().toISOString(),
       });
+
+      // Queue email notification for recipient
+      const { notifyQueue } = require('./lib/queues');
+      const prisma = require('./lib/prisma');
+      const conversation = await prisma.conversation.findUnique({
+        where: { id: conversationId },
+        include: {
+          participant1: { select: { id: true } },
+          participant2: { select: { id: true } },
+        },
+      });
+      if (conversation) {
+        const recipientId = conversation.participant1Id === socket.userId
+          ? conversation.participant2Id
+          : conversation.participant1Id;
+
+        await notifyQueue.add('send', {
+          userId: recipientId,
+          type: 'message',
+          title: 'New message',
+          body: content.substring(0, 100),
+          actionUrl: `/messages/${conversationId}`,
+          contextType: 'message',
+          contextId: conversationId,
+        });
+      }
+    } catch (err) {
+      console.error('[Socket] message:send error:', err.message);
+      socket.emit('message:error', { error: 'Failed to send message' });
     }
   });
 

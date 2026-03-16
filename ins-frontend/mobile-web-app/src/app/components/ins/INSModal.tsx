@@ -63,7 +63,10 @@ export default function INSModal() {
       setHistoryLoading(true);
       insService.getConversations()
         .then(setHistory)
-        .catch(() => setHistory([]))
+        .catch((err) => {
+          console.error('Failed to load conversation history:', err);
+          setHistory([]);
+        })
         .finally(() => setHistoryLoading(false));
     }
   }, [activeTab, isINSOpen]);
@@ -84,6 +87,27 @@ export default function INSModal() {
 
   const addMessage = (role: 'ins' | 'user', content: string) =>
     setMessages((prev) => [...prev, { id: `${role}-${Date.now()}`, role, content }]);
+
+  // Load a past conversation from history into the chat tab
+  const loadConversation = useCallback(async (conv: InsConversation) => {
+    try {
+      setHistoryLoading(true);
+      const msgs = await insService.getMessages(conv.id);
+      setMessages(msgs.map((m) => ({
+        id: m.id,
+        role: m.role === 'assistant' ? 'ins' : 'user',
+        content: m.content,
+      })));
+      setConversationId(conv.id);
+      setPhase(conv.status === 'completed' ? 'complete' : 'chatting');
+      setProgress(conv.status === 'completed' ? 100 : 50);
+      setActiveTab('chat');
+    } catch {
+      // stay on history tab on error
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
 
   // Start an INS conversation for the given category, optionally sending a first user message
   const startConversation = useCallback(async (category: string, firstMessage?: string) => {
@@ -109,8 +133,13 @@ export default function INSModal() {
           setProgress(100);
           setPhase('complete');
           setTimeout(async () => {
-            try { await insService.submitConversation(convId); } catch { /* proceed */ }
-            closeINS();
+            try {
+              await insService.submitConversation(convId);
+              closeINS();
+              navigate('/my-requests');
+            } catch {
+              closeINS();
+            }
           }, 1500);
         }
       } else {
@@ -156,8 +185,13 @@ export default function INSModal() {
         setProgress(100);
         setPhase('complete');
         setTimeout(async () => {
-          try { await insService.submitConversation(conversationId); } catch { /* proceed */ }
-          closeINS();
+          try {
+            await insService.submitConversation(conversationId);
+            closeINS();
+            navigate('/my-requests');
+          } catch {
+            closeINS();
+          }
         }, 1500);
       }
     } catch {
@@ -373,7 +407,7 @@ export default function INSModal() {
                   </div>
                 ) : (
                   history.map((conv) => (
-                    <Card key={conv.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                    <Card key={conv.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => loadConversation(conv)}>
                       <CardContent className="p-4 flex items-start gap-3 min-h-[60px]">
                         <History className="size-5 text-gray-400 mt-0.5 flex-shrink-0" />
                         <div className="flex-1 min-w-0">

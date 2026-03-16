@@ -3,12 +3,43 @@ const { success, paginated, error, getPagination, buildPaginationMeta } = requir
 
 const prisma = require('../lib/prisma');
 
-const SYSTEM_PROMPT = `You are INS (I Need Someone), a helpful AI assistant for a services marketplace platform. 
-You help clients describe what they need (local services, jobs, projects) and guide them through posting requests.
-You help providers set up their profiles and find work.
-Be conversational, friendly, and collect necessary information step by step.
-When you have enough information, return a JSON object with the key "collected_data" containing all the structured data collected.
-Always respond in JSON format: {"message": "your response", "collected_data": null_or_object, "is_complete": false_or_true}`;
+const SYSTEM_PROMPT = `You are INS (I Need Someone), an AI assistant for a services marketplace. You help users create service requests, job postings, and projects through friendly conversation.
+
+CRITICAL RULES:
+1. ALWAYS respond ONLY with valid JSON — no other text: {"message":"your message","collected_data":null,"is_complete":false}
+2. Include ALL data collected SO FAR in every "collected_data" field — carry forward previous answers, do not reset
+3. Keep "collected_data" as null until you have at least a title and description
+4. Set "is_complete": true only when ALL required fields are present
+
+=== LOCAL SERVICES (category: local-services) ===
+Required fields in collected_data:
+- title: brief title, e.g. "Fix leaking kitchen pipe"
+- description: detailed description of the work needed
+- category: MUST be exactly one of: plumbing, electrical, painting, cleaning, landscaping, hvac
+- addressLine1: street address where work is needed
+- city, state (2-letter), postalCode
+Optional: urgency ("low"|"medium"|"high"|"emergency"), budgetMin, budgetMax (numbers)
+
+=== JOBS (category: jobs) ===
+Required fields in collected_data:
+- title: job title
+- description: full job description with responsibilities and requirements
+- category: MUST be exactly one of: administrative, sales-marketing, customer-service, technology
+- employmentType: "full_time"|"part_time"|"contract"|"temporary"
+- workLocation: "on_site"|"remote"|"hybrid"
+Optional: salaryMin, salaryMax (numbers, annual)
+
+=== PROJECTS (category: projects) ===
+Required fields in collected_data:
+- title: project title
+- description: project scope and deliverables
+- category: MUST be exactly one of: web-development, mobile-development, graphic-design, content-writing, video-animation
+Optional: budgetMin, budgetMax (numbers), deadline (ISO date string, e.g. "2025-06-30")
+
+Guidelines:
+- Ask for 1-2 pieces of information at a time, conversationally
+- Before setting is_complete:true, summarize what you collected and confirm with the user
+- Never invent UUIDs or database IDs — use the exact category name strings listed above`;
 
 const startConversation = async (req, res, next) => {
   try {
@@ -86,19 +117,18 @@ const sendMessage = async (req, res, next) => {
       },
     });
 
-    // Update conversation collected data
-    if (parsed.collected_data) {
-      const existing = conversation.collectedData || {};
-      await prisma.insConversation.update({
-        where: { id: conversation.id },
-        data: {
-          collectedData: { ...existing, ...parsed.collected_data },
-          lastInteractionAt: new Date(),
-          status: parsed.is_complete ? 'completed' : 'active',
-          completedAt: parsed.is_complete ? new Date() : null,
-        },
-      });
-    }
+    // Always update lastInteractionAt; merge collected_data whenever AI provides it;
+    // and update status to completed when AI signals is_complete (even if no new data batch)
+    const existing = conversation.collectedData || {};
+    const mergedData = parsed.collected_data
+      ? { ...existing, ...parsed.collected_data }
+      : existing;
+    const updatePayload = {
+      lastInteractionAt: new Date(),
+      ...(Object.keys(mergedData).length > 0 && { collectedData: mergedData }),
+      ...(parsed.is_complete && { status: 'completed', completedAt: new Date() }),
+    };
+    await prisma.insConversation.update({ where: { id: conversation.id }, data: updatePayload });
 
     return success(res, {
       message: assistantMessage,
@@ -159,6 +189,32 @@ const transcribeVoice = async (req, res, next) => {
   }
 };
 
+// Resolve a categoryId from the DB by matching the AI-provided category name/slug.
+// Falls back to the first active category for the module if no exact match found.
+const resolveCategoryId = async (categoryHint, module) => {
+  if (categoryHint) {
+    const slug = categoryHint.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const cat = await prisma.category.findFirst({
+      where: {
+        module,
+        isActive: true,
+        OR: [
+          { slug },
+          { slug: { contains: slug } },
+          { name: { contains: categoryHint, mode: 'insensitive' } },
+        ],
+      },
+    });
+    if (cat) return cat.id;
+  }
+  // Fallback: first active category for the module
+  const fallback = await prisma.category.findFirst({
+    where: { module, isActive: true },
+    orderBy: { displayOrder: 'asc' },
+  });
+  return fallback?.id || null;
+};
+
 const submitConversation = async (req, res, next) => {
   try {
     const conversation = await prisma.insConversation.findFirst({
@@ -171,12 +227,14 @@ const submitConversation = async (req, res, next) => {
     let entityType, entity;
 
     if (conversation.category === 'local-services' && conversation.mode === 'client') {
+      const categoryId = data.categoryId || await resolveCategoryId(data.category, 'local-services');
+      if (!categoryId) return error(res, 'Could not determine service category', 400, 'VALIDATION_ERROR');
       entity = await prisma.serviceRequest.create({
         data: {
           clientId: req.user.id,
-          categoryId: data.categoryId,
-          title: data.title,
-          description: data.description,
+          categoryId,
+          title: data.title || 'Service Request',
+          description: data.description || '',
           urgency: data.urgency,
           addressLine1: data.addressLine1 || '',
           city: data.city || '',
@@ -192,12 +250,14 @@ const submitConversation = async (req, res, next) => {
       });
       entityType = 'service_request';
     } else if (conversation.category === 'jobs' && conversation.mode === 'client') {
+      const categoryId = data.categoryId || await resolveCategoryId(data.category, 'jobs');
+      if (!categoryId) return error(res, 'Could not determine job category', 400, 'VALIDATION_ERROR');
       entity = await prisma.jobPosting.create({
         data: {
           employerId: req.user.id,
-          title: data.title,
-          description: data.description,
-          categoryId: data.categoryId,
+          title: data.title || 'Job Posting',
+          description: data.description || '',
+          categoryId,
           employmentType: data.employmentType || 'full_time',
           workLocation: data.workLocation || 'on_site',
           salaryMin: data.salaryMin,
@@ -209,12 +269,14 @@ const submitConversation = async (req, res, next) => {
       });
       entityType = 'job';
     } else if (conversation.category === 'projects' && conversation.mode === 'client') {
+      const categoryId = data.categoryId || await resolveCategoryId(data.category, 'projects');
+      if (!categoryId) return error(res, 'Could not determine project category', 400, 'VALIDATION_ERROR');
       entity = await prisma.project.create({
         data: {
           clientId: req.user.id,
-          title: data.title,
-          description: data.description,
-          categoryId: data.categoryId,
+          title: data.title || 'Project',
+          description: data.description || '',
+          categoryId,
           budgetMin: data.budgetMin,
           budgetMax: data.budgetMax,
           budgetType: data.budgetType,

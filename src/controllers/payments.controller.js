@@ -31,7 +31,11 @@ const addPaymentMethod = async (req, res, next) => {
         metadata: { userId: user.id },
       });
       customerId = customer.id;
-      // Note: add stripeCustomerId to User model in schema
+      // Persist stripeCustomerId to database
+      await prisma.user.update({
+        where: { id: req.user.id },
+        data: { stripeCustomerId: customerId },
+      });
     }
 
     const pm = await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });

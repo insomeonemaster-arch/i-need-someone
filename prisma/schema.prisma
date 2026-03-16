@@ -327,6 +327,7 @@ model ProviderProfile {
   verificationStatus VerificationStatus @default(pending) @map("verification_status")
   verificationLevel  String?            @map("verification_level")
   verifiedAt         DateTime?          @map("verified_at")
+  stripeConnectId    String?            @map("stripe_connect_id")
 
   totalJobsCompleted  Int     @default(0) @map("total_jobs_completed")
   totalEarnings       Decimal @default(0) @map("total_earnings") @db.Decimal(12, 2)

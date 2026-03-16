@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { ArrowLeft, Upload, CheckCircle, Clock, AlertCircle, ShieldCheck, FileText, Loader2, ExternalLink } from 'lucide-react';
 import { Card, CardContent } from '@/app/components/ui/card';
@@ -39,15 +39,18 @@ export default function VerificationStatus() {
     }
   };
 
-  const loadData = () => {
+  const loadData = useCallback(() => {
     setLoading(true);
     verificationService.getStatus()
       .then(setData)
-      .catch(() => setFetchError('Failed to load verification status'))
+      .catch((err) => {
+        console.error('Failed to load verification status:', err);
+        setFetchError('Failed to load verification status');
+      })
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const handleReupload = async (doc: VerificationDocument, file: File) => {
     setReuploadingId(doc.id);

@@ -1,0 +1,244 @@
+# Instincts generated from https://github.com/insomeonemaster-arch/i-need-someone
+# Generated: 2026-03-16T17:42:00.451Z
+# Version: 2.0
+
+---
+id: i-need-someone-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/insomeonemaster-arch/i-need-someone
+---
+
+# I Need Someone Commit Length
+
+## Action
+
+Keep commit messages concise (under 50 characters)
+
+## Evidence
+
+- Average commit message length: 24 chars
+- Based on 14 commits
+
+---
+id: i-need-someone-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/insomeonemaster-arch/i-need-someone
+---
+
+# I Need Someone Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: i-need-someone-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/insomeonemaster-arch/i-need-someone
+---
+
+# I Need Someone Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: i-need-someone-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/insomeonemaster-arch/i-need-someone
+---
+
+# I Need Someone Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: i-need-someone-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/insomeonemaster-arch/i-need-someone
+---
+
+# I Need Someone Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: config, controllers, lib, middleware, routes
+
+---
+id: i-need-someone-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/insomeonemaster-arch/i-need-someone
+---
+
+# I Need Someone Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: i-need-someone-workflow-update-deployment-config
+trigger: "when doing update deployment config"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/insomeonemaster-arch/i-need-someone
+---
+
+# I Need Someone Workflow Update Deployment Config
+
+## Action
+
+Follow the update-deployment-config workflow:
+1. Edit vercel.json in both ins-frontend/admin-panel and ins-frontend/mobile-web-app
+2. Optionally update vite.config.ts and package.json in both locations
+3. Commit changes together
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: ins-frontend/admin-panel/vercel.json, ins-frontend/mobile-web-app/vercel.json, ins-frontend/admin-panel/vite.config.ts
+
+---
+id: i-need-someone-workflow-cross-frontend-ui-fix
+trigger: "when doing cross frontend ui fix"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/insomeonemaster-arch/i-need-someone
+---
+
+# I Need Someone Workflow Cross Frontend Ui Fix
+
+## Action
+
+Follow the cross-frontend-ui-fix workflow:
+1. Identify UI issues in both admin-panel and mobile-web-app
+2. Edit relevant component and screen files in both projects
+3. Commit changes together
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: ins-frontend/admin-panel/src/app/components/ui/*.tsx, ins-frontend/admin-panel/src/app/pages/*.tsx, ins-frontend/mobile-web-app/src/app/components/ui/*.tsx
+
+---
+id: i-need-someone-workflow-backend-controller-and-route-update
+trigger: "when doing backend controller and route update"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/insomeonemaster-arch/i-need-someone
+---
+
+# I Need Someone Workflow Backend Controller And Route Update
+
+## Action
+
+Follow the backend-controller-and-route-update workflow:
+1. Edit or add files in src/controllers/
+2. Edit or add files in src/routes/
+3. Optionally update src/server.js or middleware
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/controllers/*.js, src/routes/*.js, src/server.js
+
+---
+id: i-need-someone-workflow-frontend-backend-service-sync
+trigger: "when doing frontend backend service sync"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/insomeonemaster-arch/i-need-someone
+---
+
+# I Need Someone Workflow Frontend Backend Service Sync
+
+## Action
+
+Follow the frontend-backend-service-sync workflow:
+1. Edit backend controller and route files (src/controllers, src/routes)
+2. Edit frontend service files (e.g., ins-frontend/mobile-web-app/src/services/*.ts)
+3. Edit related frontend screens/components if needed
+4. Commit changes together
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/controllers/*.js, src/routes/*.js, ins-frontend/mobile-web-app/src/services/*.ts
+
+---
+id: i-need-someone-workflow-package-json-update
+trigger: "when doing package json update"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/insomeonemaster-arch/i-need-someone
+---
+
+# I Need Someone Workflow Package Json Update
+
+## Action
+
+Follow the package-json-update workflow:
+1. Edit package.json (optionally in multiple locations)
+2. Commit changes
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: package.json, ins-frontend/admin-panel/package.json, ins-frontend/mobile-web-app/package.json
+

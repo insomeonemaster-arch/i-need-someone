@@ -395,11 +395,13 @@ export default function DetailView() {
                   onClick={async () => {
                     if (!id) return;
                     try {
-                      await jobsService.updateRequestStatus(id, { status: 'assigned' });
+                      await jobsService.assignProvider(id, { userId: p.id });
                       await fetchData();
                       setShowReassignDrawer(false);
+                      setProviderSearch('');
+                      setProviders([]);
                     } catch (e: unknown) {
-                      alert(e instanceof Error ? e.message : 'Reassign failed');
+                      alert(e instanceof Error ? e.message : 'Assign failed');
                     }
                   }}
                 >

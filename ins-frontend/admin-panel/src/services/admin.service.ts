@@ -360,6 +360,8 @@ export const jobsService = {
     api.post<{ success: boolean; data: { id: string; status: string } }>(`/admin/local-requests/${id}/cancel`, data),
   updateRequestStatus: (id: string, data: { status: string }) =>
     api.patch<{ success: boolean; data: { id: string; status: string } }>(`/admin/local-requests/${id}/status`, data),
+  assignProvider: (id: string, data: { userId: string }) =>
+    api.post<{ success: boolean; data: { id: string; status: string } }>(`/admin/local-requests/${id}/assign-provider`, data),
 };
 
 // ── Employment ───────────────────────────────────────────────────────────────
@@ -464,6 +466,10 @@ export const verificationsService = {
   getPending: (params?: Record<string, string>) => {
     const qs = params ? '?' + new URLSearchParams(params).toString() : '';
     return api.get<PaginatedResponse<DocumentItem>>(`/admin/verification/pending${qs}`);
+  },
+  getByStatus: (status: 'verified' | 'rejected', params?: Record<string, string>) => {
+    const qs = new URLSearchParams({ status, ...(params || {}) }).toString();
+    return api.get<PaginatedResponse<DocumentItem>>(`/admin/verification/documents?${qs}`);
   },
   approveDocument: (id: string) =>
     api.post(`/admin/verification/documents/${id}/approve`, {}),

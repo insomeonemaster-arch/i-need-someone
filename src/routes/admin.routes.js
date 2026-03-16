@@ -67,6 +67,29 @@ router.get('/reports', c.getReports);
 router.put('/reports/:id', c.actionReport);
 
 router.get('/verification/pending', c.getPendingVerifications);
+router.get('/verification/documents', async (req, res) => {
+  try {
+    const { paginated, getPagination, buildPaginationMeta } = require('../utils/response');
+    const { page, perPage, skip } = getPagination(req.query);
+    const { status } = req.query;
+    const allowed = ['pending', 'verified', 'rejected'];
+    if (!status || !allowed.includes(status)) {
+      return res.status(400).json({ success: false, error: { message: `status must be one of: ${allowed.join(', ')}` } });
+    }
+    const [docs, total] = await Promise.all([
+      prisma.verificationDocument.findMany({
+        where: { verificationStatus: status },
+        skip, take: perPage,
+        orderBy: { updatedAt: 'desc' },
+        include: { user: { select: { id: true, email: true, firstName: true, lastName: true } } },
+      }),
+      prisma.verificationDocument.count({ where: { verificationStatus: status } }),
+    ]);
+    return paginated(res, docs, buildPaginationMeta(total, page, perPage));
+  } catch (err) {
+    res.status(500).json({ success: false, error: { message: err.message } });
+  }
+});
 router.post('/verification/documents/:id/approve', c.approveDocument);
 router.post('/verification/documents/:id/reject', c.rejectDocument);
 
@@ -246,6 +269,42 @@ router.post('/local-requests/:id/cancel', async (req, res) => {
         entityType: 'ServiceRequest',
         entityId: item.id,
         metadata: { reason: reason || null, previous_status: item.status },
+        ipAddress: req.ip,
+      },
+    }).catch(() => {});
+    return inlineSuccess(res, { id: updated.id, status: updated.status });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { message: err.message } });
+  }
+});
+
+router.post('/local-requests/:id/assign-provider', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ success: false, error: { message: 'userId is required' } });
+
+    const providerProfile = await inlinePrisma.providerProfile.findUnique({ where: { userId } });
+    if (!providerProfile) return res.status(404).json({ success: false, error: { message: 'Provider profile not found for this user' } });
+
+    const item = await inlinePrisma.serviceRequest.findUnique({ where: { id: req.params.id } });
+    if (!item) return res.status(404).json({ success: false, error: { message: 'Request not found' } });
+
+    const updated = await inlinePrisma.serviceRequest.update({
+      where: { id: req.params.id },
+      data: { assignedProviderId: providerProfile.id, status: 'assigned' },
+      include: {
+        assignedProvider: {
+          include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } },
+        },
+      },
+    });
+    await inlinePrisma.userActivityLog.create({
+      data: {
+        userId: req.user.id,
+        action: 'admin_assign_provider',
+        entityType: 'ServiceRequest',
+        entityId: item.id,
+        metadata: { providerId: providerProfile.id, providerUserId: userId, previous_status: item.status },
         ipAddress: req.ip,
       },
     }).catch(() => {});

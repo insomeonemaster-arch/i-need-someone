@@ -118,7 +118,7 @@ export default function RolesPermissions() {
       const res = await usersService.getUsers({ q: assignEmail, per_page: '1' });
       const user = res.data?.[0];
       if (user) {
-        setAssignSearchResult({ id: user.id, name: `${user.firstName} ${user.lastName}`, email: user.email });
+        setAssignSearchResult({ id: user.id, name: `${user.first_name} ${user.last_name}`, email: user.email });
       } else {
         alert('No user found with that email.');
       }

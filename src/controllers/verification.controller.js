@@ -24,15 +24,36 @@ const uploadDocument = async (req, res, next) => {
   try {
     const { documentType, documentNumber, issuingAuthority, issueDate, expiryDate, fileUrl, fileType } = req.body;
 
-    const doc = await prisma.verificationDocument.create({
-      data: {
-        userId: req.user.id,
-        documentType, documentNumber, issuingAuthority,
-        issueDate: issueDate ? new Date(issueDate) : null,
-        expiryDate: expiryDate ? new Date(expiryDate) : null,
-        fileUrl, fileType,
-      },
+    // If a rejected document of the same type exists for this user, reset it to pending (re-upload flow)
+    const existing = await prisma.verificationDocument.findFirst({
+      where: { userId: req.user.id, documentType, verificationStatus: 'rejected' },
+      orderBy: { createdAt: 'desc' },
     });
+
+    let doc;
+    if (existing) {
+      doc = await prisma.verificationDocument.update({
+        where: { id: existing.id },
+        data: {
+          documentNumber, issuingAuthority,
+          issueDate: issueDate ? new Date(issueDate) : null,
+          expiryDate: expiryDate ? new Date(expiryDate) : null,
+          fileUrl, fileType,
+          verificationStatus: 'pending',
+          rejectionReason: null,
+        },
+      });
+    } else {
+      doc = await prisma.verificationDocument.create({
+        data: {
+          userId: req.user.id,
+          documentType, documentNumber, issuingAuthority,
+          issueDate: issueDate ? new Date(issueDate) : null,
+          expiryDate: expiryDate ? new Date(expiryDate) : null,
+          fileUrl, fileType,
+        },
+      });
+    }
     return success(res, doc, 201);
   } catch (err) {
     next(err);

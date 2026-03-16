@@ -269,7 +269,7 @@ export function Drawer({ isOpen, onClose, title, children, width = 'md' }: Drawe
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black bg-opacity-30" onClick={onClose}></div>
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" onClick={onClose}></div>
       <div
         className={`absolute right-0 top-0 h-full bg-white shadow-xl ${widthStyles[width]} w-full flex flex-col`}
       >

@@ -107,6 +107,23 @@ require('./lib/queues/workers/analytics.worker');
 const { schedule } = require('./lib/queues/scheduler');
 schedule().then(() => console.log('[Scheduler] Ready'));
 
+// ── Payout recovery (re-queue any pending payouts stuck from a prior crash/restart)
+(async () => {
+  try {
+    const prisma = require('./lib/prisma');
+    const { payoutQueue } = require('./lib/queues');
+    const stuck = await prisma.payout.findMany({ where: { status: 'pending' } });
+    if (stuck.length > 0) {
+      console.log(`[PayoutRecovery] Re-queuing ${stuck.length} pending payout(s)...`);
+      for (const p of stuck) {
+        await payoutQueue.add('process', { payoutId: p.id });
+      }
+    }
+  } catch (err) {
+    console.error('[PayoutRecovery] Error:', err.message);
+  }
+})();
+
 // ── Listen ────────────────────────────────────────────────────────────────────
 
 server.listen(config.port, () => {

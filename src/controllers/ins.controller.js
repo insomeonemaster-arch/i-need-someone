@@ -62,7 +62,7 @@ const sendMessage = async (req, res, next) => {
 
     // Call OpenAI
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-4o',
       messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...history],
       response_format: { type: 'json_object' },
     });

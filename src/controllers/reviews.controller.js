@@ -35,6 +35,7 @@ const createReview = async (req, res, next) => {
 
     // Verify the context exists, is completed, and the reviewer was actually involved
     let contextValid = false;
+    let isProviderReview = false;
 
     if (data.contextType === 'service_request') {
       const sr = await prisma.serviceRequest.findUnique({ where: { id: data.contextId } });

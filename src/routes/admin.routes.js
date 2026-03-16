@@ -307,7 +307,9 @@ router.post('/local-requests/:id/assign-provider', async (req, res) => {
         metadata: { providerId: providerProfile.id, providerUserId: userId, previous_status: item.status },
         ipAddress: req.ip,
       },
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error('[AdminRoutes] Failed to log audit activity:', err.message);
+    });
     return inlineSuccess(res, { id: updated.id, status: updated.status });
   } catch (err) {
     res.status(500).json({ success: false, error: { message: err.message } });
@@ -336,7 +338,9 @@ router.patch('/local-requests/:id/status', async (req, res) => {
         metadata: { new_status: status, previous_status: item.status },
         ipAddress: req.ip,
       },
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error('[AdminRoutes] Failed to log audit activity:', err.message);
+    });
     return inlineSuccess(res, { id: updated.id, status: updated.status });
   } catch (err) {
     res.status(500).json({ success: false, error: { message: err.message } });

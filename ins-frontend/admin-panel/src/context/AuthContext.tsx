@@ -13,6 +13,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  requireAdmin: () => { isAdmin: boolean; user: AdminUser | null };
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -58,6 +59,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const requireAdmin = useCallback(() => {
+    if (!user || !user.isAdmin) {
+      throw new Error('Admin access required');
+    }
+    return { isAdmin: true, user };
+  }, [user]);
+
   // Auto-logout when the api layer fires auth:unauthorized
   useEffect(() => {
     const handler = () => { clearTokens(); setUser(null); };
@@ -66,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, requireAdmin }}>
       {children}
     </AuthContext.Provider>
   );

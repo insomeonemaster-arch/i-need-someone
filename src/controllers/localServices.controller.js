@@ -100,9 +100,28 @@ const updateRequest = async (req, res, next) => {
     if (request.clientId !== req.user.id) return error(res, 'Access denied', 403, 'FORBIDDEN');
     if (request.status !== 'open') return error(res, 'Cannot edit a non-open request', 400, 'VALIDATION_ERROR');
 
+    // Validate input: only allow certain fields to be updated
+    const allowedFields = ['title', 'description', 'budgetMin', 'budgetMax', 'dueDate', 'categoryId'];
+    const updateData = {};
+    for (const field of allowedFields) {
+      if (field in req.body) updateData[field] = req.body[field];
+    }
+
+    // Validate budget if present
+    if (updateData.budgetMin || updateData.budgetMax) {
+      const min = updateData.budgetMin || request.budgetMin;
+      const max = updateData.budgetMax || request.budgetMax;
+      if (typeof min !== 'number' || typeof max !== 'number' || min < 0 || max < 0) {
+        return error(res, 'Budget must be positive numbers', 400, 'VALIDATION_ERROR');
+      }
+      if (min > max) {
+        return error(res, 'Min budget cannot exceed max budget', 400, 'VALIDATION_ERROR');
+      }
+    }
+
     const updated = await prisma.serviceRequest.update({
       where: { id: req.params.id },
-      data: req.body,
+      data: updateData,
     });
 
     return success(res, updated);

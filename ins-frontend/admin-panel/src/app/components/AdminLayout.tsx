@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import {
   LayoutDashboard,
@@ -38,7 +38,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
+
+  // Verify admin permissions on mount
+  useEffect(() => {
+    if (!loading && (!user || !user.isAdmin)) {
+      console.warn('[AdminLayout] Unauthorized access attempt, redirecting to login');
+      navigate('/login', { replace: true });
+    }
+  }, [user, loading, navigate]);
 
   const handleLogout = () => {
     logout();

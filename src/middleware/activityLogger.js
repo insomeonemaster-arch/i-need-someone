@@ -10,7 +10,9 @@ const log = (action) => async (req, res, next) => {
         userAgent: req.headers['user-agent'],
         deviceType: /mobile/i.test(req.headers['user-agent']) ? 'mobile' : 'desktop',
       },
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error('[ActivityLogger] Failed to log activity:', err.message);
+    });
   }
   next();
 };

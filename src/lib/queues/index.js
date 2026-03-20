@@ -1,8 +1,7 @@
 const Bull = require('bull');
-const config = require('../../config');
 
 const defaultOpts = {
-  redis: config.redis.url,
+  redis: process.env.REDIS_URL,
   defaultJobOptions: {
     removeOnComplete: 100, // keep last 100 completed jobs
     removeOnFail: 200,

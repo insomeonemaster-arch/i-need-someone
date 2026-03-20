@@ -21,10 +21,6 @@ module.exports = {
     refreshExpiry: process.env.JWT_REFRESH_EXPIRY || '30d',
   },
 
-  redis: {
-    url: process.env.REDIS_URL || 'redis://localhost:6379',
-  },
-
   aws: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,

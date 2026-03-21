@@ -30,10 +30,57 @@ export interface StartConversationResponse {
   greeting: string;
 }
 
+// Data item returned in list payloads (service request, job, or project)
+export interface DataItem {
+  id: string;
+  entityType: 'service_request' | 'job' | 'project';
+  title: string;
+  status: string;
+  createdAt: string;
+  meta: {
+    category?: { name: string } | null;
+    city?: string;
+    state?: string;
+    urgency?: string;
+    employmentType?: string;
+    workLocation?: string;
+    budgetMin?: number | null;
+    budgetMax?: number | null;
+    salaryMin?: number | null;
+    salaryMax?: number | null;
+    deadline?: string | null;
+  };
+}
+
+export interface DataListPayload {
+  type: 'list';
+  entityType: 'service_request' | 'job' | 'project';
+  items: Array<Record<string, any>>;
+  total: number;
+  hasMore: boolean;
+}
+
+export interface DataStatsPayload {
+  type: 'stats';
+  totalEarnings: number;
+  thisMonthEarnings: number;
+  pendingPayouts: number;
+}
+
+export type DataPayload = DataListPayload | DataStatsPayload;
+
+export interface UpdateResult {
+  entityType: string;
+  entity: Record<string, any>;
+}
+
 export interface SendMessageResponse {
   message: InsMessage;
   isComplete: boolean;
   collectedData: Record<string, any> | null;
+  quickReplies: string[];
+  dataPayload: DataPayload | null;
+  updateResult: UpdateResult | null;
 }
 
 export interface SubmitConversationResponse {
@@ -43,7 +90,7 @@ export interface SubmitConversationResponse {
 
 class InsService {
   async startConversation(category: string, mode: string): Promise<StartConversationResponse> {
-    return apiClient.post('/ins/conversations', { category, mode });
+    return apiClient.post('/ins/conversations', { category: category || null, mode });
   }
 
   async sendMessage(conversationId: string, content: string): Promise<SendMessageResponse> {
@@ -52,6 +99,19 @@ class InsService {
 
   async submitConversation(conversationId: string): Promise<SubmitConversationResponse> {
     return apiClient.post(`/ins/conversations/${conversationId}/submit`);
+  }
+
+  async updateEntity(
+    conversationId: string,
+    entityType: string,
+    entityId: string,
+    updateFields: Record<string, any>,
+  ): Promise<UpdateResult> {
+    return apiClient.patch(`/ins/conversations/${conversationId}/entity`, {
+      entity_type: entityType,
+      entity_id: entityId,
+      update_fields: updateFields,
+    });
   }
 
   async getMessages(conversationId: string): Promise<InsMessage[]> {

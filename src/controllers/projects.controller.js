@@ -76,6 +76,14 @@ const getProject = async (req, res, next) => {
       },
     });
     if (!project) return error(res, 'Project not found', 404, 'NOT_FOUND');
+
+    // Access control: only client or assigned provider may view full details
+    const isClient = project.client?.id === req.user.id;
+    const isAssigned = project.assignedProvider?.user?.id === req.user.id;
+    if (!isClient && !isAssigned) {
+      return error(res, 'Access denied', 403, 'FORBIDDEN');
+    }
+
     return success(res, project);
   } catch (err) {
     next(err);
@@ -121,7 +129,7 @@ const acceptProposal = async (req, res, next) => {
   try {
     const proposal = await prisma.projectProposal.findUnique({
       where: { id: req.params.id },
-      include: { project: true },
+      include: { project: true, provider: { include: { user: true } } },
     });
     if (!proposal) return error(res, 'Proposal not found', 404, 'NOT_FOUND');
     if (proposal.project.clientId !== req.user.id) return error(res, 'Access denied', 403, 'FORBIDDEN');

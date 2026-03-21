@@ -467,6 +467,9 @@ const sendMessage = async (req, res, next) => {
     if (!content || typeof content !== 'string' || !content.trim()) {
       return error(res, 'Message content required', 400, 'VALIDATION_ERROR');
     }
+    if (content.length > 4000) {
+      return error(res, 'Message too long (max 4000 characters)', 400, 'VALIDATION_ERROR');
+    }
 
     const conversation = await prisma.insConversation.findFirst({
       where: { id: req.params.id, userId: req.user.id, status: 'active' },
@@ -526,7 +529,8 @@ const sendMessage = async (req, res, next) => {
     let parsed;
     try {
       parsed = JSON.parse(responseText);
-    } catch {
+    } catch (parseErr) {
+      console.error('INS JSON parse error:', parseErr.message, '| Raw:', responseText?.slice(0, 200));
       parsed = { message: responseText, intent: 'general', fetch_action: 'none', quick_replies: [], collected_data: null, is_complete: false };
     }
 

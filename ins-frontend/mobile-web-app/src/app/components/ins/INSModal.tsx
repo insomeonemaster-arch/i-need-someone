@@ -151,7 +151,12 @@ export default function INSModal() {
           try {
             await insService.submitConversation(convId!);
             closeINS();
-            navigate('/my-requests');
+            const dp = response.dataPayload;
+            const entityType = dp && 'entityType' in dp ? dp.entityType : null;
+            const route = entityType === 'job' ? '/my-jobs'
+              : entityType === 'project' ? '/my-projects'
+              : '/my-requests';
+            navigate(route);
           } catch {
             closeINS();
           }
@@ -238,6 +243,8 @@ export default function INSModal() {
             className="bg-white w-full md:max-w-2xl md:rounded-3xl rounded-t-3xl max-h-[85vh] md:max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
             ref={modalRef}
+            role="dialog"
+            aria-label="INS Assistant"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -325,10 +332,10 @@ export default function INSModal() {
                 {/* Input area */}
                 <div className="border-t p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-3 bg-white shrink-0">
                   <div className="flex items-end gap-2">
-                    <Button variant="outline" size="icon" className="min-w-[44px] min-h-[44px] flex-shrink-0">
+                    <Button variant="outline" size="icon" className="min-w-[44px] min-h-[44px] flex-shrink-0" aria-label="Attach file">
                       <Paperclip className="size-5" />
                     </Button>
-                    <Button variant="outline" size="icon" className="min-w-[44px] min-h-[44px] flex-shrink-0">
+                    <Button variant="outline" size="icon" className="min-w-[44px] min-h-[44px] flex-shrink-0" aria-label="Voice input">
                       <Mic className="size-5" />
                     </Button>
                     <Textarea
@@ -344,6 +351,7 @@ export default function INSModal() {
                       disabled={!input.trim() || isTyping || phase === 'complete'}
                       size="icon"
                       className="rounded-full flex-shrink-0 min-w-[44px] min-h-[44px] bg-primary hover:bg-[#4A6BE8]"
+                      aria-label="Send message"
                     >
                       <Send className="size-5" />
                     </Button>

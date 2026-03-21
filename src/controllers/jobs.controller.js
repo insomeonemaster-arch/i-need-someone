@@ -86,7 +86,15 @@ const updateJob = async (req, res, next) => {
     if (!job) return error(res, 'Job not found', 404, 'NOT_FOUND');
     if (job.employerId !== req.user.id) return error(res, 'Access denied', 403, 'FORBIDDEN');
 
-    const updated = await prisma.jobPosting.update({ where: { id: req.params.id }, data: req.body });
+    const allowedFields = ['title', 'description', 'categoryId', 'employmentType', 'workLocation',
+      'city', 'state', 'salaryMin', 'salaryMax', 'salaryType', 'requiredSkills',
+      'minExperienceYears', 'applicationDeadline', 'positionsAvailable', 'companyName'];
+    const updateData = {};
+    for (const field of allowedFields) {
+      if (field in req.body) updateData[field] = req.body[field];
+    }
+
+    const updated = await prisma.jobPosting.update({ where: { id: req.params.id }, data: updateData });
     return success(res, updated);
   } catch (err) {
     next(err);

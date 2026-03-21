@@ -1,15 +1,15 @@
 const rateLimit = require('express-rate-limit');
 
 const authLimiter = rateLimit({
-  windowMs: 1000,
-  max: 5,
+  windowMs: 15 * 60 * 1000,
+  max: 10,
   message: { success: false, error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' } },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 const registerLimiter = rateLimit({
-  windowMs: 1000,
+  windowMs: 60 * 60 * 1000,
   max: 5,
   message: { success: false, error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many registrations' } },
   standardHeaders: true,
@@ -17,8 +17,8 @@ const registerLimiter = rateLimit({
 });
 
 const defaultLimiter = rateLimit({
-  windowMs: 1000,
-  max: 10,
+  windowMs: 60 * 1000,
+  max: 100,
   message: { success: false, error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' } },
   standardHeaders: true,
   legacyHeaders: false,

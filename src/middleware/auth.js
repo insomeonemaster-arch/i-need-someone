@@ -14,7 +14,7 @@ const authenticate = async (req, res, next) => {
     const decoded = verifyAccessToken(token);
 
     const user = await prisma.user.findUnique({
-      where: { id: decoded.sub, isActive: true, deletedAt: null },
+      where: { id: decoded.sub },
       select: {
         id: true,
         email: true,
@@ -22,10 +22,12 @@ const authenticate = async (req, res, next) => {
         isAdmin: true,
         isProvider: true,
         isEmailVerified: true,
+        isActive: true,
+        deletedAt: true,
       },
     });
 
-    if (!user) {
+    if (!user || !user.isActive || user.deletedAt) {
       return error(res, 'User not found', 401, 'AUTH_INVALID');
     }
 

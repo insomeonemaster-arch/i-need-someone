@@ -87,6 +87,14 @@ const getRequest = async (req, res, next) => {
 
     if (!request) return error(res, 'Request not found', 404, 'NOT_FOUND');
 
+    // Access control: only client, assigned provider, or a quoting provider may view
+    const isClient = request.client?.id === req.user.id;
+    const isAssigned = request.assignedProvider?.user?.id === req.user.id;
+    const isQuoter = request.quotes?.some(q => q.provider?.user?.id === req.user.id);
+    if (!isClient && !isAssigned && !isQuoter) {
+      return error(res, 'Access denied', 403, 'FORBIDDEN');
+    }
+
     return success(res, request);
   } catch (err) {
     next(err);

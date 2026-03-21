@@ -148,7 +148,7 @@ function ItemCard({ item, entityType, onEdit, onAction }: ItemCardProps) {
 // --- Quote Card ---
 function QuoteCard({ item, onAction }: { item: Record<string, any>; onAction: (msg: string) => void }) {
   const providerName = item.provider?.user
-    ? `${item.provider.user.firstName} ${item.provider.user.lastName}`
+    ? `${item.provider.user.firstName || ''} ${item.provider.user.lastName || ''}`.trim() || 'Provider'
     : 'Provider';
   const isPending = item.status === 'pending';
 
@@ -217,7 +217,7 @@ function ApplicationCard({ item, onAction }: { item: Record<string, any>; onActi
 // --- Proposal Card ---
 function ProposalCard({ item, onAction }: { item: Record<string, any>; onAction: (msg: string) => void }) {
   const providerName = item.provider?.user
-    ? `${item.provider.user.firstName} ${item.provider.user.lastName}`
+    ? `${item.provider.user.firstName || ''} ${item.provider.user.lastName || ''}`.trim() || 'Provider'
     : 'Provider';
   const isPending = item.status === 'pending';
 

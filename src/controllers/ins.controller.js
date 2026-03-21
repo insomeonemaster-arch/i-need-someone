@@ -4,79 +4,102 @@ const { success, paginated, error, getPagination, buildPaginationMeta } = requir
 const prisma = require('../lib/prisma');
 
 // ---------------------------------------------------------------------------
-// SYSTEM PROMPT
+// SYSTEM PROMPTS — compact for reads, full for create flows (saves tokens)
 // ---------------------------------------------------------------------------
-const SYSTEM_PROMPT = `You are INS (I Need Someone), a smart assistant for a services marketplace. You help users CREATE service requests/jobs/projects, READ their existing data, and UPDATE records — all through natural conversation.
+const BASE_SYSTEM_PROMPT = `You are INS, a smart assistant for a services marketplace. Help users CREATE service requests/jobs/projects, READ their data, UPDATE records, and take ACTIONS (cancel, accept, reject) — all through natural conversation.
 
-RESPONSE FORMAT — Always return ONLY valid JSON, nothing else:
+RESPONSE FORMAT — Always return ONLY valid JSON:
 {
-  "message": "concise reply, max 3 sentences",
-  "intent": "create|read|update|general",
-  "fetch_action": "list_service_requests|list_jobs|list_projects|get_earnings|none",
+  "message": "concise reply, max 2 sentences",
+  "intent": "create|read|update|action|general",
+  "fetch_action": "none",
+  "fetch_entity_id": null,
+  "page": 1,
   "quick_replies": ["label 1", "label 2"],
   "collected_data": null,
   "is_complete": false,
-  "update_proposal": null
+  "update_proposal": null,
+  "action_proposal": null
 }
 
-EFFICIENCY RULES:
+RULES:
+- Keep replies to 1–2 sentences. Always include 2–3 quick_replies.
 - NEVER ask for one field at a time — ask for ALL required fields in ONE message.
-- Keep replies short and direct (2–3 sentences max).
-- Always include 2–3 relevant quick_replies for follow-up actions.
 
 INTENT DETECTION:
-- "create" → user wants to post something new
-- "read"   → user wants to see/view/list/show their data or earnings
-- "update" → user wants to change/edit something
+- "create" → post/create something new
+- "read" → see/view/list/show data or earnings
+- "update" → change/edit a record
+- "action" → cancel, close, accept, reject, shortlist
 - "general" → help, questions, other
 
-READ → set fetch_action:
-- service requests / local services / my requests → "list_service_requests"
-- jobs / job postings / my jobs → "list_jobs"
+READ → set fetch_action + page (default 1). Set fetch_entity_id when a UUID is referenced:
+- service requests / my requests → "list_service_requests"
+- jobs / my jobs → "list_jobs"
 - projects / my projects → "list_projects"
-- earnings / income / how much have I earned → "get_earnings"
-- informational only → "none"
+- earnings / income → "get_earnings"
+- quotes for a request → "list_quotes" + fetch_entity_id = request UUID
+- applications for a job → "list_applications" + fetch_entity_id = job UUID
+- proposals for a project → "list_proposals" + fetch_entity_id = project UUID
+- transactions / payments → "list_transactions"
+- "show more" / "older" / "next page" → same fetch_action as before, page + 1
+- none → "none"
 
-=== CREATE: LOCAL SERVICES ===
-Required: title, description, category (plumbing|electrical|painting|cleaning|landscaping|hvac), addressLine1, city, state (2-letter), postalCode
-Optional: urgency (low|medium|high|emergency), budgetMin, budgetMax (numbers)
-→ Ask ALL required fields in one message: "What work do you need? Tell me: what it is, the service type (plumbing/electrical/painting/cleaning/landscaping/hvac), and your full address including zip code."
+ACTION → set action_proposal:
+{
+  "action_proposal": {
+    "action": "cancel_request|close_job|cancel_project|accept_quote|reject_quote|accept_proposal|reject_proposal|shortlist_application|reject_application",
+    "entity_id": "UUID from conversation",
+    "confirm": false
+  }
+}
+First request: set confirm:false, ask user to confirm.
+After user says yes: set confirm:true to execute.
+Never invent IDs.
 
-=== CREATE: JOBS ===
-Required: title, description, category (administrative|sales-marketing|customer-service|technology), employmentType (full_time|part_time|contract|temporary), workLocation (on_site|remote|hybrid)
-Optional: salaryMin, salaryMax (numbers, annual)
-→ Ask ALL in one message: "Tell me about the role: job title, full description, category, employment type (full-time/part-time/contract/temporary), and work location (on-site/remote/hybrid)."
-
-=== CREATE: PROJECTS ===
-Required: title, description, category (web-development|mobile-development|graphic-design|content-writing|video-animation)
-Optional: budgetMin, budgetMax (numbers), deadline (ISO date)
-→ Ask ALL in one message: "Describe the project: title, what you need delivered, and which category fits (web/mobile dev, graphic design, content writing, video/animation)."
-
-COLLECTED DATA RULES:
-- Carry ALL collected fields forward in every response — never reset collected_data
-- Keep collected_data null until you have at least title + description
-- Set is_complete: true only when ALL required fields are present and confirmed
-- Before is_complete: true, give one confirmation sentence: "Got it — [summary]. Shall I post this?"
-
-UPDATE FLOW:
-When the user wants to edit a record and provides an entity_id, return:
+UPDATE → set update_proposal:
 {
   "update_proposal": {
     "entity_type": "service_request|job|project",
-    "entity_id": "the UUID from the conversation",
+    "entity_id": "UUID",
     "fields": { "fieldName": "newValue" }
   }
 }
 Only include fields the user explicitly asked to change. Never invent IDs.`;
 
+const CREATE_ADDENDUM = `
+
+=== CREATE: LOCAL SERVICES ===
+Required: title, description, category (plumbing|electrical|painting|cleaning|landscaping|hvac), addressLine1, city, state (2-letter), postalCode
+Optional: urgency (low|medium|high|emergency), budgetMin, budgetMax (numbers)
+→ Ask ALL required fields in one message.
+
+=== CREATE: JOBS ===
+Required: title, description, category (administrative|sales-marketing|customer-service|technology), employmentType (full_time|part_time|contract|temporary), workLocation (on_site|remote|hybrid)
+Optional: salaryMin, salaryMax (numbers, annual)
+→ Ask ALL in one message.
+
+=== CREATE: PROJECTS ===
+Required: title, description, category (web-development|mobile-development|graphic-design|content-writing|video-animation)
+Optional: budgetMin, budgetMax (numbers), deadline (ISO date)
+→ Ask ALL in one message.
+
+COLLECTED DATA RULES:
+- Carry ALL collected fields forward — never reset collected_data.
+- Keep collected_data null until you have at least title + description.
+- Set is_complete:true only when ALL required fields are present and confirmed.
+- Before is_complete:true, confirm: "Got it — [summary]. Shall I post this?"`;
+
 // ---------------------------------------------------------------------------
 // DATA FETCH HELPERS
 // ---------------------------------------------------------------------------
-const fetchServiceRequests = async (userId, limit = 5) => {
+const fetchServiceRequests = async (userId, page = 1, limit = 5) => {
+  const skip = (page - 1) * limit;
   const [items, total] = await Promise.all([
     prisma.serviceRequest.findMany({
       where: { clientId: userId },
       orderBy: { createdAt: 'desc' },
+      skip,
       take: limit,
       select: {
         id: true, title: true, status: true, urgency: true,
@@ -86,14 +109,17 @@ const fetchServiceRequests = async (userId, limit = 5) => {
     }),
     prisma.serviceRequest.count({ where: { clientId: userId } }),
   ]);
-  return { items, total, hasMore: total > limit };
+  const totalPages = Math.ceil(total / limit);
+  return { items, total, page, totalPages, hasMore: page < totalPages };
 };
 
-const fetchJobs = async (userId, limit = 5) => {
+const fetchJobs = async (userId, page = 1, limit = 5) => {
+  const skip = (page - 1) * limit;
   const [items, total] = await Promise.all([
     prisma.jobPosting.findMany({
       where: { employerId: userId },
       orderBy: { createdAt: 'desc' },
+      skip,
       take: limit,
       select: {
         id: true, title: true, status: true, employmentType: true, workLocation: true,
@@ -103,14 +129,17 @@ const fetchJobs = async (userId, limit = 5) => {
     }),
     prisma.jobPosting.count({ where: { employerId: userId } }),
   ]);
-  return { items, total, hasMore: total > limit };
+  const totalPages = Math.ceil(total / limit);
+  return { items, total, page, totalPages, hasMore: page < totalPages };
 };
 
-const fetchProjects = async (userId, limit = 5) => {
+const fetchProjects = async (userId, page = 1, limit = 5) => {
+  const skip = (page - 1) * limit;
   const [items, total] = await Promise.all([
     prisma.project.findMany({
       where: { clientId: userId },
       orderBy: { createdAt: 'desc' },
+      skip,
       take: limit,
       select: {
         id: true, title: true, status: true,
@@ -120,7 +149,8 @@ const fetchProjects = async (userId, limit = 5) => {
     }),
     prisma.project.count({ where: { clientId: userId } }),
   ]);
-  return { items, total, hasMore: total > limit };
+  const totalPages = Math.ceil(total / limit);
+  return { items, total, page, totalPages, hasMore: page < totalPages };
 };
 
 const fetchEarnings = async (userId) => {
@@ -145,6 +175,104 @@ const fetchEarnings = async (userId) => {
     thisMonthEarnings: Number(monthResult._sum.providerEarnings || 0),
     pendingPayouts: Number(pendingResult._sum.providerEarnings || 0),
   };
+};
+
+// ---------------------------------------------------------------------------
+// NEW FETCH HELPERS (quotes, applications, proposals, transactions)
+// ---------------------------------------------------------------------------
+const fetchQuotes = async (userId, serviceRequestId, page = 1, limit = 5) => {
+  const request = await prisma.serviceRequest.findFirst({
+    where: { id: serviceRequestId, clientId: userId },
+    select: { id: true },
+  });
+  if (!request) return null;
+  const skip = (page - 1) * limit;
+  const [items, total] = await Promise.all([
+    prisma.serviceQuote.findMany({
+      where: { serviceRequestId },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+      select: {
+        id: true, price: true, message: true, status: true,
+        estimatedHours: true, availabilityDate: true, createdAt: true,
+        provider: { select: { user: { select: { firstName: true, lastName: true } } } },
+      },
+    }),
+    prisma.serviceQuote.count({ where: { serviceRequestId } }),
+  ]);
+  const totalPages = Math.ceil(total / limit);
+  return { items, total, page, totalPages, hasMore: page < totalPages };
+};
+
+const fetchApplications = async (userId, jobPostingId, page = 1, limit = 5) => {
+  const job = await prisma.jobPosting.findFirst({
+    where: { id: jobPostingId, employerId: userId },
+    select: { id: true },
+  });
+  if (!job) return null;
+  const skip = (page - 1) * limit;
+  const [items, total] = await Promise.all([
+    prisma.jobApplication.findMany({
+      where: { jobPostingId },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+      select: {
+        id: true, status: true, coverLetter: true, expectedSalary: true,
+        availableFrom: true, createdAt: true,
+        applicant: { select: { firstName: true, lastName: true } },
+      },
+    }),
+    prisma.jobApplication.count({ where: { jobPostingId } }),
+  ]);
+  const totalPages = Math.ceil(total / limit);
+  return { items, total, page, totalPages, hasMore: page < totalPages };
+};
+
+const fetchProposals = async (userId, projectId, page = 1, limit = 5) => {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, clientId: userId },
+    select: { id: true },
+  });
+  if (!project) return null;
+  const skip = (page - 1) * limit;
+  const [items, total] = await Promise.all([
+    prisma.projectProposal.findMany({
+      where: { projectId },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+      select: {
+        id: true, proposedPrice: true, coverLetter: true, status: true,
+        estimatedDuration: true, createdAt: true,
+        provider: { select: { user: { select: { firstName: true, lastName: true } } } },
+      },
+    }),
+    prisma.projectProposal.count({ where: { projectId } }),
+  ]);
+  const totalPages = Math.ceil(total / limit);
+  return { items, total, page, totalPages, hasMore: page < totalPages };
+};
+
+const fetchTransactions = async (userId, page = 1, limit = 5) => {
+  const skip = (page - 1) * limit;
+  const where = { OR: [{ payerId: userId }, { payeeId: userId }] };
+  const [items, total] = await Promise.all([
+    prisma.transaction.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+      select: {
+        id: true, amount: true, currency: true, status: true,
+        contextType: true, platformFee: true, providerEarnings: true, createdAt: true,
+      },
+    }),
+    prisma.transaction.count({ where }),
+  ]);
+  const totalPages = Math.ceil(total / limit);
+  return { items, total, page, totalPages, hasMore: page < totalPages };
 };
 
 // Whitelisted fields per entity type — prevents mass-assignment attacks
@@ -177,6 +305,132 @@ const applyEntityUpdate = async (userId, entityType, entityId, fields) => {
     return prisma.project.update({ where: { id: entityId }, data: safe });
   }
   return null;
+};
+
+// ---------------------------------------------------------------------------
+// ACTION HANDLER — cancel, close, accept, reject, shortlist
+// ---------------------------------------------------------------------------
+const executeAction = async (userId, actionProposal) => {
+  const { action, entity_id, confirm } = actionProposal;
+  if (!confirm || !entity_id) return { needsConfirmation: true, action };
+
+  switch (action) {
+    case 'cancel_request': {
+      const entity = await prisma.serviceRequest.findFirst({ where: { id: entity_id, clientId: userId } });
+      if (!entity) return { error: 'Service request not found' };
+      if (entity.status === 'completed' || entity.status === 'cancelled')
+        return { error: `Cannot cancel a ${entity.status} request` };
+      const updated = await prisma.serviceRequest.update({
+        where: { id: entity_id }, data: { status: 'cancelled', cancelledAt: new Date() },
+      });
+      return { success: true, action, entityType: 'service_request', entity: updated };
+    }
+    case 'close_job': {
+      const entity = await prisma.jobPosting.findFirst({ where: { id: entity_id, employerId: userId } });
+      if (!entity) return { error: 'Job posting not found' };
+      const updated = await prisma.jobPosting.update({
+        where: { id: entity_id }, data: { status: 'closed', closedAt: new Date() },
+      });
+      return { success: true, action, entityType: 'job', entity: updated };
+    }
+    case 'cancel_project': {
+      const entity = await prisma.project.findFirst({ where: { id: entity_id, clientId: userId } });
+      if (!entity) return { error: 'Project not found' };
+      if (entity.status === 'completed' || entity.status === 'cancelled')
+        return { error: `Cannot cancel a ${entity.status} project` };
+      const updated = await prisma.project.update({
+        where: { id: entity_id }, data: { status: 'cancelled' },
+      });
+      return { success: true, action, entityType: 'project', entity: updated };
+    }
+    case 'accept_quote': {
+      const quote = await prisma.serviceQuote.findUnique({
+        where: { id: entity_id },
+        include: { serviceRequest: { select: { clientId: true, id: true } } },
+      });
+      if (!quote || quote.serviceRequest.clientId !== userId) return { error: 'Quote not found' };
+      if (quote.status !== 'pending') return { error: `Quote is already ${quote.status}` };
+      await prisma.$transaction([
+        prisma.serviceQuote.update({ where: { id: entity_id }, data: { status: 'accepted', acceptedAt: new Date() } }),
+        prisma.serviceQuote.updateMany({
+          where: { serviceRequestId: quote.serviceRequestId, id: { not: entity_id } },
+          data: { status: 'rejected', rejectedAt: new Date() },
+        }),
+        prisma.serviceRequest.update({
+          where: { id: quote.serviceRequestId },
+          data: { status: 'assigned', assignedProviderId: quote.providerId },
+        }),
+      ]);
+      return { success: true, action, entityType: 'quote', entity: { id: entity_id, status: 'accepted' } };
+    }
+    case 'reject_quote': {
+      const quote = await prisma.serviceQuote.findUnique({
+        where: { id: entity_id },
+        include: { serviceRequest: { select: { clientId: true } } },
+      });
+      if (!quote || quote.serviceRequest.clientId !== userId) return { error: 'Quote not found' };
+      const updated = await prisma.serviceQuote.update({
+        where: { id: entity_id }, data: { status: 'rejected', rejectedAt: new Date() },
+      });
+      return { success: true, action, entityType: 'quote', entity: updated };
+    }
+    case 'accept_proposal': {
+      const proposal = await prisma.projectProposal.findUnique({
+        where: { id: entity_id },
+        include: { project: { select: { clientId: true, id: true } } },
+      });
+      if (!proposal || proposal.project.clientId !== userId) return { error: 'Proposal not found' };
+      if (proposal.status !== 'pending') return { error: `Proposal is already ${proposal.status}` };
+      await prisma.$transaction([
+        prisma.projectProposal.update({ where: { id: entity_id }, data: { status: 'accepted', acceptedAt: new Date() } }),
+        prisma.projectProposal.updateMany({
+          where: { projectId: proposal.projectId, id: { not: entity_id } },
+          data: { status: 'rejected', rejectedAt: new Date() },
+        }),
+        prisma.project.update({
+          where: { id: proposal.projectId },
+          data: { status: 'in_progress', assignedProviderId: proposal.providerId, startedAt: new Date() },
+        }),
+      ]);
+      return { success: true, action, entityType: 'proposal', entity: { id: entity_id, status: 'accepted' } };
+    }
+    case 'reject_proposal': {
+      const proposal = await prisma.projectProposal.findUnique({
+        where: { id: entity_id },
+        include: { project: { select: { clientId: true } } },
+      });
+      if (!proposal || proposal.project.clientId !== userId) return { error: 'Proposal not found' };
+      if (proposal.status !== 'pending') return { error: `Proposal is already ${proposal.status}` };
+      const updated = await prisma.projectProposal.update({
+        where: { id: entity_id }, data: { status: 'rejected', rejectedAt: new Date() },
+      });
+      return { success: true, action, entityType: 'proposal', entity: updated };
+    }
+    case 'shortlist_application': {
+      const app = await prisma.jobApplication.findUnique({
+        where: { id: entity_id },
+        include: { jobPosting: { select: { employerId: true } } },
+      });
+      if (!app || app.jobPosting.employerId !== userId) return { error: 'Application not found' };
+      const updated = await prisma.jobApplication.update({
+        where: { id: entity_id }, data: { status: 'shortlisted', reviewedAt: new Date() },
+      });
+      return { success: true, action, entityType: 'application', entity: updated };
+    }
+    case 'reject_application': {
+      const app = await prisma.jobApplication.findUnique({
+        where: { id: entity_id },
+        include: { jobPosting: { select: { employerId: true } } },
+      });
+      if (!app || app.jobPosting.employerId !== userId) return { error: 'Application not found' };
+      const updated = await prisma.jobApplication.update({
+        where: { id: entity_id }, data: { status: 'rejected', reviewedAt: new Date() },
+      });
+      return { success: true, action, entityType: 'application', entity: updated };
+    }
+    default:
+      return { error: `Unknown action: ${action}` };
+  }
 };
 
 // ---------------------------------------------------------------------------
@@ -225,26 +479,45 @@ const sendMessage = async (req, res, next) => {
       data: { conversationId: conversation.id, role: 'user', content: content.trim(), inputMethod },
     });
 
-    // Use last 8 messages to keep token usage low
-    const recentMessages = conversation.messages.slice(-8);
+    // Determine if in a create flow → use full prompt + stronger model
+    const inCreateFlow = !!(
+      (conversation.collectedData && Object.keys(conversation.collectedData).length > 0
+        && Object.keys(conversation.collectedData).some(k => k !== '_fetchMeta')) ||
+      conversation.category
+    );
+    const model = inCreateFlow ? 'gpt-4o' : 'gpt-4o-mini';
+    const historyLimit = inCreateFlow ? 8 : 4;
+
+    const recentMessages = conversation.messages.slice(-historyLimit);
     const history = recentMessages.map(m => ({
       role: m.role === 'assistant' ? 'assistant' : 'user',
       content: m.content,
     }));
 
-    // Inject in-progress collected data as a system context note (cheaper than re-stating in chat)
-    const systemMessages = [{ role: 'system', content: SYSTEM_PROMPT }];
+    const prompt = inCreateFlow ? BASE_SYSTEM_PROMPT + CREATE_ADDENDUM : BASE_SYSTEM_PROMPT;
+    const systemMessages = [{ role: 'system', content: prompt }];
+
+    // Inject in-progress collected data as context
     if (conversation.collectedData && Object.keys(conversation.collectedData).length > 0) {
-      systemMessages.push({
-        role: 'system',
-        content: `[Active create flow — data collected so far: ${JSON.stringify(conversation.collectedData)}]`,
-      });
+      const { _fetchMeta, ...createData } = conversation.collectedData;
+      if (Object.keys(createData).length > 0) {
+        systemMessages.push({
+          role: 'system',
+          content: `[Active create flow — data so far: ${JSON.stringify(createData)}]`,
+        });
+      }
+      if (_fetchMeta) {
+        systemMessages.push({
+          role: 'system',
+          content: `[Last data shown: ${_fetchMeta.action}, page ${_fetchMeta.page} of ${_fetchMeta.totalPages}]`,
+        });
+      }
     }
 
     history.push({ role: 'user', content: content.trim() });
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model,
       messages: [...systemMessages, ...history],
       response_format: { type: 'json_object' },
     });
@@ -257,28 +530,42 @@ const sendMessage = async (req, res, next) => {
       parsed = { message: responseText, intent: 'general', fetch_action: 'none', quick_replies: [], collected_data: null, is_complete: false };
     }
 
-    // Fetch real DB data when AI signals a read action
+    // ----- Fetch data when AI signals a read action -----
     let dataPayload = null;
     const fetchAction = parsed.fetch_action || 'none';
+    const page = Math.max(1, parseInt(parsed.page, 10) || 1);
+    const fetchEntityId = parsed.fetch_entity_id || null;
     try {
       if (fetchAction === 'list_service_requests') {
-        const result = await fetchServiceRequests(req.user.id);
+        const result = await fetchServiceRequests(req.user.id, page);
         dataPayload = { type: 'list', entityType: 'service_request', ...result };
       } else if (fetchAction === 'list_jobs') {
-        const result = await fetchJobs(req.user.id);
+        const result = await fetchJobs(req.user.id, page);
         dataPayload = { type: 'list', entityType: 'job', ...result };
       } else if (fetchAction === 'list_projects') {
-        const result = await fetchProjects(req.user.id);
+        const result = await fetchProjects(req.user.id, page);
         dataPayload = { type: 'list', entityType: 'project', ...result };
       } else if (fetchAction === 'get_earnings') {
         const result = await fetchEarnings(req.user.id);
         dataPayload = { type: 'stats', ...result };
+      } else if (fetchAction === 'list_quotes' && fetchEntityId) {
+        const result = await fetchQuotes(req.user.id, fetchEntityId, page);
+        if (result) dataPayload = { type: 'list', entityType: 'quote', ...result };
+      } else if (fetchAction === 'list_applications' && fetchEntityId) {
+        const result = await fetchApplications(req.user.id, fetchEntityId, page);
+        if (result) dataPayload = { type: 'list', entityType: 'application', ...result };
+      } else if (fetchAction === 'list_proposals' && fetchEntityId) {
+        const result = await fetchProposals(req.user.id, fetchEntityId, page);
+        if (result) dataPayload = { type: 'list', entityType: 'proposal', ...result };
+      } else if (fetchAction === 'list_transactions') {
+        const result = await fetchTransactions(req.user.id, page);
+        dataPayload = { type: 'list', entityType: 'transaction', ...result };
       }
     } catch (fetchErr) {
       console.error('[INS] Data fetch error:', fetchErr.message);
     }
 
-    // Apply update_proposal if AI returns one — always verify ownership before writing
+    // ----- Apply update_proposal -----
     let updateResult = null;
     if (
       parsed.update_proposal?.entity_id &&
@@ -299,22 +586,37 @@ const sendMessage = async (req, res, next) => {
       }
     }
 
+    // ----- Execute action_proposal -----
+    let actionResult = null;
+    if (parsed.action_proposal?.action && parsed.action_proposal?.entity_id) {
+      try {
+        actionResult = await executeAction(req.user.id, parsed.action_proposal);
+      } catch (actionErr) {
+        console.error('[INS] Action error:', actionErr.message);
+        actionResult = { error: 'Failed to execute action' };
+      }
+    }
+
     // Save assistant message
     const assistantMessage = await prisma.insMessage.create({
       data: {
         conversationId: conversation.id,
         role: 'assistant',
         content: parsed.message || '',
-        aiModel: 'gpt-4o',
+        aiModel: model,
         tokensUsed: completion.usage?.total_tokens,
       },
     });
 
-    // Merge collected_data
+    // Merge collected_data + track pagination state
     const existing = conversation.collectedData || {};
     const mergedData = parsed.collected_data
       ? { ...existing, ...parsed.collected_data }
-      : existing;
+      : { ...existing };
+
+    if (dataPayload && dataPayload.type === 'list') {
+      mergedData._fetchMeta = { action: fetchAction, page, totalPages: dataPayload.totalPages, entityId: fetchEntityId };
+    }
 
     await prisma.insConversation.update({
       where: { id: conversation.id },
@@ -332,6 +634,7 @@ const sendMessage = async (req, res, next) => {
       quickReplies: Array.isArray(parsed.quick_replies) ? parsed.quick_replies.slice(0, 4) : [],
       dataPayload,
       updateResult,
+      actionResult,
     });
   } catch (err) {
     next(err);

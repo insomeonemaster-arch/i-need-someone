@@ -54,9 +54,11 @@ export interface DataItem {
 
 export interface DataListPayload {
   type: 'list';
-  entityType: 'service_request' | 'job' | 'project';
+  entityType: 'service_request' | 'job' | 'project' | 'quote' | 'application' | 'proposal' | 'transaction';
   items: Array<Record<string, any>>;
   total: number;
+  page: number;
+  totalPages: number;
   hasMore: boolean;
 }
 
@@ -74,6 +76,15 @@ export interface UpdateResult {
   entity: Record<string, any>;
 }
 
+export interface ActionResult {
+  success?: boolean;
+  needsConfirmation?: boolean;
+  error?: string;
+  action?: string;
+  entityType?: string;
+  entity?: Record<string, any>;
+}
+
 export interface SendMessageResponse {
   message: InsMessage;
   isComplete: boolean;
@@ -81,6 +92,7 @@ export interface SendMessageResponse {
   quickReplies: string[];
   dataPayload: DataPayload | null;
   updateResult: UpdateResult | null;
+  actionResult: ActionResult | null;
 }
 
 export interface SubmitConversationResponse {

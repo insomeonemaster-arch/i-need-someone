@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/ta
 import { Card, CardContent } from '@/app/components/ui/card';
 import { motion, AnimatePresence } from 'motion/react';
 import { useINS } from '@/app/context/INSContext';
-import { insService, InsConversation, DataPayload, UpdateResult } from '@/services/ins.service';
+import { insService, InsConversation, DataPayload, UpdateResult, ActionResult } from '@/services/ins.service';
 import ChatMessageRenderer from './ChatMessageRenderer';
 
 interface RichMessage {
@@ -17,6 +17,7 @@ interface RichMessage {
   quickReplies?: string[];
   dataPayload?: DataPayload | null;
   updateResult?: UpdateResult | null;
+  actionResult?: ActionResult | null;
 }
 
 type INSPhase = 'idle' | 'chatting' | 'complete';
@@ -26,7 +27,10 @@ const CHIP_ACTIONS = [
   { label: 'Post a job',             category: 'jobs',           type: 'create' as const },
   { label: 'Create a project',       category: 'projects',       type: 'create' as const },
   { label: 'My requests',            message: 'Show me my service requests',  type: 'chat' as const },
+  { label: 'My jobs',                message: 'Show me my jobs',              type: 'chat' as const },
+  { label: 'My projects',            message: 'Show me my projects',          type: 'chat' as const },
   { label: 'My earnings',            message: 'Show me my earnings',          type: 'chat' as const },
+  { label: 'My transactions',        message: 'Show me my transactions',      type: 'chat' as const },
 ];
 
 export default function INSModal() {
@@ -126,10 +130,10 @@ export default function INSModal() {
       const response = await insService.sendMessage(convId, content);
       setIsTyping(false);
 
-      // Normalize response — older conversations may not send quickReplies/dataPayload
       const quickReplies: string[] = response.quickReplies ?? [];
       const dataPayload = response.dataPayload ?? null;
       const updateResult = response.updateResult ?? null;
+      const actionResult = response.actionResult ?? null;
 
       addMessage({
         id: response.message.id,
@@ -138,6 +142,7 @@ export default function INSModal() {
         quickReplies: quickReplies.length > 0 ? quickReplies : undefined,
         dataPayload,
         updateResult,
+        actionResult,
       });
 
       if (response.isComplete) {
@@ -295,6 +300,7 @@ export default function INSModal() {
                       quickReplies={msg.quickReplies}
                       dataPayload={msg.dataPayload}
                       updateResult={msg.updateResult}
+                      actionResult={msg.actionResult}
                       onQuickReply={handleQuickReply}
                       onEditEntity={handleEditEntity}
                     />

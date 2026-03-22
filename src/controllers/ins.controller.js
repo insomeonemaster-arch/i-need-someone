@@ -85,9 +85,12 @@ Optional: budgetMin, budgetMax (numbers), deadline (ISO date)
 → Ask ALL in one message.
 
 COLLECTED DATA RULES:
-- Carry ALL collected fields forward — never reset collected_data.
+- ALWAYS include ALL previously collected fields in collected_data — never omit or reset them.
+- Never set a field to null or empty string once it has a value.
+- When adding new fields, include all prior fields too (e.g. if title was collected earlier, always include title).
 - Keep collected_data null until you have at least title + description.
 - Set is_complete:true only when ALL required fields are present and confirmed.
+- Budget values must be plain numbers without $ signs (e.g. 500, not "$500").
 - Before is_complete:true, confirm: "Got it — [summary]. Shall I post this?"`;
 
 // ---------------------------------------------------------------------------
@@ -613,10 +616,16 @@ const sendMessage = async (req, res, next) => {
     });
 
     // Merge collected_data + track pagination state
+    // Filter out null/undefined/empty-string values from AI response to prevent overwriting previously collected data
     const existing = conversation.collectedData || {};
-    const mergedData = parsed.collected_data
-      ? { ...existing, ...parsed.collected_data }
-      : { ...existing };
+    let mergedData = { ...existing };
+    if (parsed.collected_data && typeof parsed.collected_data === 'object') {
+      for (const [key, value] of Object.entries(parsed.collected_data)) {
+        if (value !== null && value !== undefined && value !== '') {
+          mergedData[key] = value;
+        }
+      }
+    }
 
     if (dataPayload && dataPayload.type === 'list') {
       mergedData._fetchMeta = { action: fetchAction, page, totalPages: dataPayload.totalPages, entityId: fetchEntityId };
@@ -746,72 +755,103 @@ const submitConversation = async (req, res, next) => {
     if (!conversation.collectedData) return error(res, 'No data collected yet', 400, 'VALIDATION_ERROR');
 
     const data = conversation.collectedData;
+    // Strip internal metadata before validation
+    const { _fetchMeta, ...userData } = data;
     let entityType, entity;
 
     // Infer type from conversation.category, then fall back to collected data signals
     const cat = conversation.category;
-    const isLocalServices = cat === 'local-services' || ['plumbing','electrical','painting','cleaning','landscaping','hvac'].includes(data.category);
-    const isJob = cat === 'jobs' || data.employmentType;
-    const isProject = cat === 'projects' || ['web-development','mobile-development','graphic-design','content-writing','video-animation'].includes(data.category);
+    const isLocalServices = cat === 'local-services' || ['plumbing','electrical','painting','cleaning','landscaping','hvac'].includes(userData.category);
+    const isJob = cat === 'jobs' || userData.employmentType;
+    const isProject = cat === 'projects' || ['web-development','mobile-development','graphic-design','content-writing','video-animation'].includes(userData.category);
 
     if (isLocalServices && !isJob) {
-      const categoryId = data.categoryId || await resolveCategoryId(data.category, 'local-services');
+      // Validate required fields for service requests
+      if (!userData.title || !userData.description) {
+        return error(res, 'Title and description are required. Please provide them before submitting.', 400, 'VALIDATION_ERROR');
+      }
+      if (!userData.addressLine1 || !userData.city || !userData.state || !userData.postalCode) {
+        return error(res, 'Address (street, city, state, zip) is required. Please provide it before submitting.', 400, 'VALIDATION_ERROR');
+      }
+
+      const categoryId = userData.categoryId || await resolveCategoryId(userData.category, 'local-services');
       if (!categoryId) return error(res, 'Could not determine service category', 400, 'VALIDATION_ERROR');
+
+      // Ensure budget values are numbers if present
+      const budgetMin = userData.budgetMin != null ? Number(userData.budgetMin) : undefined;
+      const budgetMax = userData.budgetMax != null ? Number(userData.budgetMax) : undefined;
+
       entity = await prisma.serviceRequest.create({
         data: {
           clientId: req.user.id,
           categoryId,
-          title: data.title || 'Service Request',
-          description: data.description || '',
-          urgency: data.urgency,
-          addressLine1: data.addressLine1 || '',
-          city: data.city || '',
-          state: data.state || '',
-          postalCode: data.postalCode || '',
-          budgetMin: data.budgetMin,
-          budgetMax: data.budgetMax,
-          budgetType: data.budgetType,
+          title: userData.title,
+          description: userData.description,
+          urgency: userData.urgency,
+          addressLine1: userData.addressLine1,
+          city: userData.city,
+          state: userData.state,
+          postalCode: userData.postalCode,
+          budgetMin: !isNaN(budgetMin) ? budgetMin : undefined,
+          budgetMax: !isNaN(budgetMax) ? budgetMax : undefined,
+          budgetType: userData.budgetType,
           createdVia: 'ins',
           insConversationId: conversation.id,
-          insCollectedData: data,
+          insCollectedData: userData,
         },
       });
       entityType = 'service_request';
     } else if (isJob) {
-      const categoryId = data.categoryId || await resolveCategoryId(data.category, 'jobs');
+      if (!userData.title || !userData.description) {
+        return error(res, 'Title and description are required. Please provide them before submitting.', 400, 'VALIDATION_ERROR');
+      }
+
+      const categoryId = userData.categoryId || await resolveCategoryId(userData.category, 'jobs');
       if (!categoryId) return error(res, 'Could not determine job category', 400, 'VALIDATION_ERROR');
+
+      const salaryMin = userData.salaryMin != null ? Number(userData.salaryMin) : undefined;
+      const salaryMax = userData.salaryMax != null ? Number(userData.salaryMax) : undefined;
+
       entity = await prisma.jobPosting.create({
         data: {
           employerId: req.user.id,
-          title: data.title || 'Job Posting',
-          description: data.description || '',
+          title: userData.title,
+          description: userData.description,
           categoryId,
-          employmentType: data.employmentType || 'full_time',
-          workLocation: data.workLocation || 'on_site',
-          salaryMin: data.salaryMin,
-          salaryMax: data.salaryMax,
+          employmentType: userData.employmentType || 'full_time',
+          workLocation: userData.workLocation || 'on_site',
+          salaryMin: !isNaN(salaryMin) ? salaryMin : undefined,
+          salaryMax: !isNaN(salaryMax) ? salaryMax : undefined,
           createdVia: 'ins',
           insConversationId: conversation.id,
-          insCollectedData: data,
+          insCollectedData: userData,
         },
       });
       entityType = 'job';
     } else if (isProject) {
-      const categoryId = data.categoryId || await resolveCategoryId(data.category, 'projects');
+      if (!userData.title || !userData.description) {
+        return error(res, 'Title and description are required. Please provide them before submitting.', 400, 'VALIDATION_ERROR');
+      }
+
+      const categoryId = userData.categoryId || await resolveCategoryId(userData.category, 'projects');
       if (!categoryId) return error(res, 'Could not determine project category', 400, 'VALIDATION_ERROR');
+
+      const budgetMin = userData.budgetMin != null ? Number(userData.budgetMin) : undefined;
+      const budgetMax = userData.budgetMax != null ? Number(userData.budgetMax) : undefined;
+
       entity = await prisma.project.create({
         data: {
           clientId: req.user.id,
-          title: data.title || 'Project',
-          description: data.description || '',
+          title: userData.title,
+          description: userData.description,
           categoryId,
-          budgetMin: data.budgetMin,
-          budgetMax: data.budgetMax,
-          budgetType: data.budgetType,
-          deadline: data.deadline ? new Date(data.deadline) : null,
+          budgetMin: !isNaN(budgetMin) ? budgetMin : undefined,
+          budgetMax: !isNaN(budgetMax) ? budgetMax : undefined,
+          budgetType: userData.budgetType,
+          deadline: userData.deadline ? new Date(userData.deadline) : null,
           createdVia: 'ins',
           insConversationId: conversation.id,
-          insCollectedData: data,
+          insCollectedData: userData,
         },
       });
       entityType = 'project';

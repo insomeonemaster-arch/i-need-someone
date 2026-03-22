@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { X, Mic, Send, History, Paperclip } from 'lucide-react';
+import { X, Mic, MicOff, Send, History, Paperclip } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
@@ -50,6 +50,84 @@ export default function INSModal() {
   const modalRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef<number>(0);
   const currentYRef = useRef<number>(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  // Speech recognition setup
+  const startVoiceInput = useCallback(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      addMessage({
+        id: `err-${Date.now()}`,
+        role: 'ins',
+        content: 'Voice input is not supported in this browser. Please use Chrome or Safari.',
+      });
+      return;
+    }
+
+    if (isRecording && recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognitionRef.current = recognition;
+
+    let finalTranscript = '';
+
+    recognition.onstart = () => setIsRecording(true);
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interim += transcript;
+        }
+      }
+      // Show live transcription in the input box
+      setInput((prev) => {
+        const base = prev.replace(/\u200B.*$/, ''); // remove previous interim marker
+        if (interim) return (finalTranscript || base) + '\u200B' + interim;
+        return finalTranscript || base;
+      });
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+      recognitionRef.current = null;
+      // Clean up any interim markers, keep final text
+      setInput((prev) => prev.replace(/\u200B/g, ''));
+    };
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      setIsRecording(false);
+      recognitionRef.current = null;
+      if (event.error !== 'aborted' && event.error !== 'no-speech') {
+        addMessage({
+          id: `err-${Date.now()}`,
+          role: 'ins',
+          content: event.error === 'not-allowed'
+            ? 'Microphone access was denied. Please allow microphone permissions.'
+            : 'Voice input failed. Please try again or type your message.',
+        });
+      }
+    };
+
+    recognition.start();
+  }, [isRecording]);
+
+  // Stop recording when modal closes
+  useEffect(() => {
+    if (!isINSOpen && recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+  }, [isINSOpen]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -335,8 +413,15 @@ export default function INSModal() {
                     <Button variant="outline" size="icon" className="min-w-[44px] min-h-[44px] flex-shrink-0" aria-label="Attach file">
                       <Paperclip className="size-5" />
                     </Button>
-                    <Button variant="outline" size="icon" className="min-w-[44px] min-h-[44px] flex-shrink-0" aria-label="Voice input">
-                      <Mic className="size-5" />
+                    <Button
+                      variant={isRecording ? 'default' : 'outline'}
+                      size="icon"
+                      className={`min-w-[44px] min-h-[44px] flex-shrink-0 ${isRecording ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' : ''}`}
+                      aria-label={isRecording ? 'Stop recording' : 'Voice input'}
+                      onClick={startVoiceInput}
+                      disabled={isTyping || phase === 'complete'}
+                    >
+                      {isRecording ? <MicOff className="size-5" /> : <Mic className="size-5" />}
                     </Button>
                     <Textarea
                       placeholder={phase === 'idle' ? 'Ask INS anything...' : 'Type your message...'}
